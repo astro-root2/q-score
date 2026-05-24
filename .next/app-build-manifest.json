@@ -26,20 +26,45 @@
       "static/chunks/main-app.js",
       "static/chunks/app/t/[tid]/page.js"
     ],
+    "/t/[tid]/setup/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/t/[tid]/setup/page.js"
+    ],
+    "/(dashboard)/new/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/new/page.js"
+    ],
     "/t/[tid]/setup/participants/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/t/[tid]/setup/participants/page.js"
+    ],
+    "/t/[tid]/paper/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/t/[tid]/paper/page.js"
     ],
     "/t/[tid]/setup/rounds/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/t/[tid]/setup/rounds/page.js"
     ],
-    "/t/[tid]/setup/page": [
+    "/t/[tid]/questions/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/t/[tid]/setup/page.js"
+      "static/chunks/app/t/[tid]/questions/page.js"
+    ],
+    "/t/[tid]/results/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/t/[tid]/results/page.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

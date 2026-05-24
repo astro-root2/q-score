@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import PaperClient from './PaperClient'
 
 export default async function PaperPage({ params }: { params: { tid: string } }) {
-  const supabase = createClient()
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 

@@ -1,17 +1,22 @@
 {
   "node": {
-    "000eef3d5f8dd6b8b0c8cde6f105ca9a97ad6c3e37": {
+    "005925b42dc66a749b64775c7276fd601ac8085b74": {
       "workers": {
         "app/(dashboard)/page": {
-          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fworkspaces%2Fq-score%2Fapp%2F(dashboard)%2Flayout.tsx%22%2C%5B%5B%22000eef3d5f8dd6b8b0c8cde6f105ca9a97ad6c3e37%22%2C%22%24%24RSC_SERVER_ACTION_0%22%5D%5D%5D%5D&__client_imported__=!",
+          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fworkspaces%2Fq-score%2Fapp%2F(dashboard)%2Flayout.tsx%22%2C%5B%5B%22005925b42dc66a749b64775c7276fd601ac8085b74%22%2C%22%24%24RSC_SERVER_ACTION_0%22%5D%5D%5D%5D&__client_imported__=!",
+          "async": false
+        },
+        "app/(dashboard)/new/page": {
+          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fworkspaces%2Fq-score%2Fapp%2F(dashboard)%2Flayout.tsx%22%2C%5B%5B%22005925b42dc66a749b64775c7276fd601ac8085b74%22%2C%22%24%24RSC_SERVER_ACTION_0%22%5D%5D%5D%5D&__client_imported__=!",
           "async": false
         }
       },
       "layer": {
-        "app/(dashboard)/page": "rsc"
+        "app/(dashboard)/page": "rsc",
+        "app/(dashboard)/new/page": "rsc"
       }
     }
   },
   "edge": {},
-  "encryptionKey": "3G1/TklRpTNXUDEv6Yh+eiuegzV8XPxd7XMGWLIm/xk="
+  "encryptionKey": "tmBumX58aGWDywbcsShXP0QQelR987J0HzFGfNqYwGc="
 }
