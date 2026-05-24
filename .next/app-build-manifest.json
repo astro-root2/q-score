@@ -26,10 +26,10 @@
       "static/chunks/main-app.js",
       "static/chunks/app/t/[tid]/page.js"
     ],
-    "/_not-found/page": [
+    "/t/[tid]/setup/rounds/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
+      "static/chunks/app/t/[tid]/setup/rounds/page.js"
     ]
   }
 }
