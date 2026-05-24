@@ -78,12 +78,12 @@ export default async function TournamentDashboard({ params }: Props) {
                       </div>
                       <div className="flex items-center gap-2">
                         <a href={`/obs/${match.obs_token}`} target="_blank"
-                          className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" title="OBS配信画面">
-                          <Radio size={15} />
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs transition-colors">
+                          <Radio size={13} /> OBS
                         </a>
                         <a href={`/screen/${match.display_token}`} target="_blank"
-                          className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" title="会場スクリーン">
-                          <Monitor size={15} />
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white text-xs transition-colors">
+                          <Monitor size={13} /> 会場スクリーン
                         </a>
                         <Link href={`/t/${tid}/match/${match.id}`}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-colors">
