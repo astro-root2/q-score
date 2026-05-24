@@ -173,6 +173,20 @@ export default function RoundsClient({ tournament, initialRounds, rules }: Props
                     <p className="text-xs text-zinc-500 mt-1">{rule.description}</p>
                   </div>
 
+                  <div>
+                    <label className="text-xs text-zinc-400 block mb-1">開始問題番号</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={Number(r.rule_params['_startQ'] ?? 1)}
+                        min={1}
+                        onChange={e => updateParam(r.id, '_startQ', Math.max(1, Number(e.target.value)))}
+                        className="w-24 bg-zinc-800 text-white rounded px-2 py-1 text-sm border border-zinc-700 focus:outline-none focus:border-purple-500"
+                      />
+                      <span className="text-xs text-zinc-500">問目から開始（前の試合の続きに使用）</span>
+                    </div>
+                  </div>
+
                   {rule.paramDefs.length > 0 && (
                     <div>
                       <label className="text-xs text-zinc-400 block mb-2">ルールパラメータ</label>

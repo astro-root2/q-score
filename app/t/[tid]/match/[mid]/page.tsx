@@ -34,6 +34,8 @@ export default async function MatchPage({ params }: Props) {
       participants.map((p, i) => ({ id: p.id, name: p.name, ruby: p.ruby ?? '', position: i + 1 })),
       round.rule_params ?? {}
     )
+    const startQ = Number(round.rule_params?._startQ ?? 1)
+    if (startQ > 1) gameState.questionNumber = startQ - 1
   }
 
   const replayedState = events && events.length > 0
