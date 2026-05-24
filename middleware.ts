@@ -3,7 +3,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
-
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -22,24 +21,25 @@ export async function middleware(request: NextRequest) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
+  const pathname = request.nextUrl.pathname
 
-  const protectedPaths = ['/t/', '/(dashboard)']
-  const isProtectedPath = protectedPaths.some(p =>
-    request.nextUrl.pathname.startsWith(p.replace('/(dashboard)', ''))
-  )
+  const isAuthPage = pathname === '/login' || pathname === '/register'
+  const isPublicTokenPage =
+    pathname.startsWith('/obs/') ||
+    pathname.startsWith('/screen/') ||
+    pathname.startsWith('/staff/')
+  const isProtectedPage =
+    pathname.startsWith('/t/') ||
+    pathname === '/' ||
+    pathname.startsWith('/new')
 
-  const isDisplayPath =
-    request.nextUrl.pathname.startsWith('/obs/') ||
-    request.nextUrl.pathname.startsWith('/screen/') ||
-    request.nextUrl.pathname.startsWith('/staff/')
-
-  if (!isDisplayPath && isProtectedPath && !user) {
+  if (!isPublicTokenPage && isProtectedPage && !user) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
+    loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/register')) {
+  if (user && isAuthPage) {
     return NextResponse.redirect(new URL('/', request.url))
   }
 
