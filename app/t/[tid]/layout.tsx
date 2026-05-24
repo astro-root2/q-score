@@ -20,6 +20,7 @@ export default async function TournamentLayout({ children, params }: Props) {
 
   const navItems = [
     { href: `/t/${tid}`, label: 'ダッシュボード', icon: Trophy },
+    { href: `/t/${tid}/matches`, label: '試合', icon: Monitor },
     { href: `/t/${tid}/setup/participants`, label: '参加者', icon: Users },
     { href: `/t/${tid}/paper`, label: 'ペーパー', icon: BookOpen },
     { href: `/t/${tid}/setup/rounds`, label: 'ラウンド', icon: Layers },
