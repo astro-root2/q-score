@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { RuleRegistry } from '@/lib/engine/rules'
 import type { MatchState, PlayerState } from '@/lib/engine/types'
-import { cn } from '@/lib/utils/cn'
 
 export default function ObsPage() {
   const { token } = useParams<{ token: string }>()
@@ -46,42 +45,100 @@ export default function ObsPage() {
     return () => { supabase.removeChannel(ch) }
   }, [matchId])
 
-  if (!state) return <div className="min-h-screen bg-transparent" />
+  if (!state) return <div style={{ background: 'transparent', minHeight: '100vh' }} />
 
   const rule = RuleRegistry.find(state.ruleId)
-  const active = state.players.filter(p => p.status === 'active')
-  const others = state.players.filter(p => p.status !== 'active')
-
-  const cols = active.length <= 4 ? 4 : active.length <= 8 ? 4 : 6
+  const active     = state.players.filter(p => p.status === 'active')
+  const winners    = state.players.filter(p => p.status === 'winner')
+  const eliminated = state.players.filter(p => p.status === 'eliminated')
+  const resting    = state.players.filter(p => p.status === 'resting')
 
   return (
-    <div className="min-h-screen bg-transparent p-3 space-y-2">
-      {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-white font-bold text-base drop-shadow-lg">{state.matchName}</span>
-        <div className="flex items-center gap-3">
+    <div style={{
+      background: 'transparent',
+      padding: '12px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 8,
+      fontFamily: "'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', sans-serif",
+      userSelect: 'none',
+    }}>
+
+      {/* ヘッダー: 試合名 + Q番号 */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '6px 14px',
+        background: 'rgba(15,23,42,0.82)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: 8,
+        backdropFilter: 'blur(12px)',
+      }}>
+        <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: 13, letterSpacing: '0.05em' }}>
+          {state.matchName}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {state.status === 'paused' && (
+            <span style={{ color: '#fbbf24', fontSize: 11, fontWeight: 600 }}>⏸ 停止中</span>
+          )}
           {state.questionNumber > 0 && (
-            <span className="text-[#4a90e2] font-black text-2xl drop-shadow-lg tabular-nums">
-              Q{state.questionNumber}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+              <span style={{ color: '#64748b', fontSize: 11 }}>Q</span>
+              <span style={{ color: '#60a5fa', fontWeight: 900, fontSize: 22, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                {state.questionNumber}
+              </span>
+            </div>
           )}
         </div>
       </div>
 
       {/* 問題文 */}
       {state.questionText && (
-        <div className="bg-black/60 backdrop-blur rounded-lg px-4 py-2 text-sm text-white leading-relaxed">
+        <div style={{
+          padding: '6px 14px',
+          background: 'rgba(15,23,42,0.75)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: 8,
+          backdropFilter: 'blur(12px)',
+          fontSize: 12,
+          color: '#cbd5e1',
+          lineHeight: 1.5,
+        }}>
           {state.questionText.split('/').map((part, i, arr) => (
             <span key={i}>
               {part}
-              {i < arr.length - 1 && <span className="text-[#4a90e2] font-black mx-1">/</span>}
+              {i < arr.length - 1 && (
+                <span style={{ color: '#60a5fa', fontWeight: 900, margin: '0 4px' }}>/</span>
+              )}
             </span>
           ))}
         </div>
       )}
 
-      {/* プレイヤーカード */}
-      <div className={cn('grid gap-2', `grid-cols-${cols}`)}>
+      {/* 勝ち抜け帯 */}
+      {winners.length > 0 && (
+        <div style={{
+          display: 'flex', gap: 6, flexWrap: 'wrap',
+          padding: '5px 10px',
+          background: 'rgba(16,185,129,0.1)',
+          border: '1px solid rgba(16,185,129,0.25)',
+          borderRadius: 8,
+        }}>
+          {winners.map(p => (
+            <span key={p.id} style={{ color: '#6ee7b7', fontSize: 11, fontWeight: 700 }}>
+              🏆 {p.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* プレイヤーカード（横一列） */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${active.length}, minmax(0, 1fr))`,
+        gap: 6,
+      }}>
         {active.map(p => (
           <ObsCard
             key={p.id}
@@ -93,18 +150,24 @@ export default function ObsPage() {
         ))}
       </div>
 
-      {/* 勝ち抜け・脱落 */}
-      {others.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {others.map(p => (
-            <span key={p.id} className={cn(
-              'text-xs px-2 py-0.5 rounded bg-black/60 backdrop-blur',
-              p.status === 'winner'   ? 'text-emerald-400' :
-              p.status === 'eliminated' ? 'text-red-400 line-through' :
-              p.status === 'resting'  ? 'text-yellow-400' : 'text-zinc-500'
-            )}>
-              {p.name}{p.status === 'resting' && p.restRemaining > 0 ? ` 休${p.restRemaining}` : ''}
-            </span>
+      {/* 脱落・休み */}
+      {(eliminated.length > 0 || resting.length > 0) && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {eliminated.map(p => (
+            <span key={p.id} style={{
+              fontSize: 10, color: '#334155',
+              textDecoration: 'line-through',
+              background: 'rgba(15,23,42,0.7)',
+              padding: '2px 6px', borderRadius: 4,
+            }}>{p.name}</span>
+          ))}
+          {resting.map(p => (
+            <span key={p.id} style={{
+              fontSize: 10, color: '#92400e',
+              background: 'rgba(245,158,11,0.12)',
+              border: '1px solid rgba(245,158,11,0.2)',
+              padding: '2px 6px', borderRadius: 4,
+            }}>{p.name} 休{p.restRemaining}</span>
           ))}
         </div>
       )}
@@ -118,65 +181,138 @@ function ObsCard({ player, rule, params, flash }: {
   params: Record<string, number | string | boolean>
   flash: 'correct' | 'wrong' | null
 }) {
-  const display = rule?.getScoreDisplay(player, params)
+  const display  = rule?.getScoreDisplay(player, params)
   const towerPct = display?.towerMax && display.towerMax > 0
     ? Math.min((display.towerValue ?? 0) / display.towerMax * 100, 100) : 0
 
+  const borderColor = flash === 'correct'
+    ? 'rgba(16,185,129,0.9)'
+    : flash === 'wrong'
+      ? 'rgba(239,68,68,0.7)'
+      : 'rgba(255,255,255,0.08)'
+
+  const glow = flash === 'correct'
+    ? '0 0 20px rgba(16,185,129,0.4)'
+    : flash === 'wrong'
+      ? '0 0 16px rgba(239,68,68,0.3)'
+      : 'none'
+
+  const scoreColor = flash === 'correct' ? '#10b981'
+    : flash === 'wrong' ? '#ef4444'
+    : '#3b82f6'
+
+  const towerColor = flash === 'correct'
+    ? 'rgba(16,185,129,0.5)'
+    : 'rgba(59,130,246,0.4)'
+
   return (
-    <div className={cn(
-      'rounded-xl overflow-hidden border backdrop-blur-sm transition-all duration-200',
-      'bg-[#111e36]/85 border-[#1e3a6a]/80',
-      flash === 'correct' && 'border-emerald-400 shadow-lg shadow-emerald-500/40 scale-105',
-      flash === 'wrong'   && 'border-red-500 shadow-lg shadow-red-500/30',
-    )}>
-      {/* 名前（縦書き） */}
-      <div
-        className="flex items-center justify-center py-3 px-2 min-h-[80px]"
-        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
-        <span className="text-white font-bold text-sm leading-tight">{player.name}</span>
-        {player.nickname && (
-          <span className="text-[#7090c0] text-xs ml-1">{player.nickname}</span>
+    <div style={{
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      background: 'rgba(15,23,42,0.82)',
+      border: `1px solid ${borderColor}`,
+      borderRadius: 10,
+      overflow: 'hidden',
+      backdropFilter: 'blur(12px)',
+      boxShadow: glow,
+      transform: flash ? 'scale(1.05)' : 'scale(1)',
+      transition: 'all 0.2s ease',
+    }}>
+
+      {/* タワーバー */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0,
+        width: '100%',
+        height: `${towerPct}%`,
+        background: `linear-gradient(to top, ${towerColor}, transparent)`,
+        transition: 'height 0.5s cubic-bezier(0.34,1.56,0.64,1)',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
+
+      {/* 縦書き名前 */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 1,
+        height: 90,
+        width: '100%',
+        padding: '8px 4px',
+      }}>
+        {player.affiliation && (
+          <div style={{
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            color: '#06b6d4',
+            fontSize: 9,
+            opacity: 0.8,
+            letterSpacing: 1,
+          }}>{player.affiliation}</div>
         )}
+        <div style={{
+          writingMode: 'vertical-rl',
+          textOrientation: 'upright',
+          color: flash ? '#f1f5f9' : '#cbd5e1',
+          fontSize: 14,
+          fontWeight: 700,
+          letterSpacing: 2,
+          transition: 'color 0.2s',
+        }}>{player.name}</div>
       </div>
 
-      {/* タワー + スコア */}
-      <div className="relative h-16 overflow-hidden">
-        <div className="absolute inset-0 bg-[#1a3060]" />
-        <div
-          className={cn(
-            'absolute bottom-0 inset-x-0 transition-all duration-700',
-            flash === 'correct' ? 'bg-emerald-500' : 'bg-[#2d5a9e]'
-          )}
-          style={{ height: `${towerPct}%` }}
-        />
-        <div className="relative z-10 flex items-center justify-center h-full">
-          <span className={cn(
-            'font-black text-3xl tabular-nums',
-            flash === 'correct' ? 'text-emerald-300' :
-            flash === 'wrong'   ? 'text-red-300' : 'text-[#4a90e2]'
-          )}>
-            {display?.primary}
-          </span>
+      {/* スコア */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 2,
+        padding: '4px 6px 8px',
+        width: '100%',
+      }}>
+        <div style={{
+          fontSize: 32,
+          fontWeight: 900,
+          color: scoreColor,
+          lineHeight: 1,
+          textShadow: flash === 'correct' ? '0 0 16px rgba(16,185,129,0.6)' : '0 0 12px rgba(59,130,246,0.4)',
+          fontVariantNumeric: 'tabular-nums',
+          transition: 'color 0.2s',
+        }}>
+          {display?.primary ?? '0'}
         </div>
 
-        {/* 正解フラッシュオーバーレイ */}
-        {flash === 'correct' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-2xl">⭕</span>
-          </div>
+        {display?.detail && (
+          <div style={{ color: '#f59e0b', fontSize: 9, fontWeight: 600 }}>{display.detail}</div>
         )}
-        {flash === 'wrong' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-2xl">❌</span>
+
+        {(player.correct > 0 || player.wrong > 0) && (
+          <div style={{ display: 'flex', gap: 6, fontSize: 10 }}>
+            {player.correct > 0 && <span style={{ color: '#10b981', fontWeight: 700 }}>{player.correct}○</span>}
+            {player.wrong > 0 && (
+              <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                {'×'.repeat(Math.min(player.wrong, 4))}{player.wrong > 4 ? `(${player.wrong})` : ''}
+              </span>
+            )}
           </div>
         )}
       </div>
 
-      {/* ○✕カウント */}
-      {(player.correct > 0 || player.wrong > 0) && (
-        <div className="bg-black/30 px-2 py-1 text-center text-xs flex justify-center gap-2">
-          {player.correct > 0 && <span className="text-emerald-400">{player.correct}○</span>}
-          {player.wrong > 0 && <span className="text-red-400">{player.wrong}✕</span>}
+      {/* フラッシュアイコン */}
+      {flash && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 28, opacity: 0.75, pointerEvents: 'none',
+        }}>
+          {flash === 'correct' ? '⭕' : '❌'}
         </div>
       )}
     </div>
