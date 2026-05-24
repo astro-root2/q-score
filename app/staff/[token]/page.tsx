@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
 import type { MatchState, PlayerState } from '@/lib/engine/types'
 import { Eye, Wifi, WifiOff } from 'lucide-react'
+import { RuleRegistry } from '@/lib/engine/rules'
 
 export default function StaffPage() {
   const { token } = useParams<{ token: string }>()
@@ -66,7 +67,7 @@ export default function StaffPage() {
         <div className="flex items-center gap-2">
           <Eye size={18} className="text-blue-400" />
           <span className="font-bold text-white">{state.matchName}</span>
-          <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">{state.ruleId}</span>
+          <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">{RuleRegistry.find(state.ruleId)?.name ?? state.ruleId}</span>
           <span className="text-xs text-zinc-400">Q{state.questionNumber}</span>
         </div>
         <div className={cn('flex items-center gap-1.5 text-xs px-2 py-1 rounded',

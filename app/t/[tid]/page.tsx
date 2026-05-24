@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Play, Plus, Monitor, Radio } from 'lucide-react'
+import { RuleRegistry } from '@/lib/engine/rules'
 
 interface Props { params: Promise<{ tid: string }> }
 
@@ -57,7 +58,7 @@ export default async function TournamentDashboard({ params }: Props) {
               <div key={round.id} className="space-y-2">
                 <div className="flex items-center gap-3">
                   <h3 className="font-semibold text-white">{round.name}</h3>
-                  <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">{round.rule_id}</span>
+                  <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">{RuleRegistry.find(round.rule_id)?.name ?? round.rule_id}</span>
                 </div>
                 <div className="grid gap-2">
                   {(round.matches as Array<{
