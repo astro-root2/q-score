@@ -38,6 +38,15 @@ export default async function MatchPage({ params }: Props) {
     if (startQ > 1) gameState.questionNumber = startQ - 1
   }
 
+  if (!gameState) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <p className="text-zinc-400">参加者が登録されていません</p>
+        </div>
+      </div>
+    )
+  }
   const replayedState = events && events.length > 0
     ? GameEngine.replay(events as Parameters<typeof GameEngine.replay>[0], gameState)
     : gameState
