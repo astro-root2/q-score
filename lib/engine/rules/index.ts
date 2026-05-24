@@ -4,6 +4,8 @@ import { MonMaruNYasumiRule } from './MonMaruNYasumi'
 import { UpDownRule } from './UpDown'
 import { RensotoTsukiRule } from './RensotoTsuki'
 import { ByRule } from './By'
+import { FreezeRule } from './Freeze'
+import { SwedishRule } from './Swedish'
 
 const RULE_INSTANCES: QuizRule[] = [
   new MonMaruNBatsuRule(),
@@ -11,6 +13,8 @@ const RULE_INSTANCES: QuizRule[] = [
   new UpDownRule(),
   new RensotoTsukiRule(),
   new ByRule(),
+  new FreezeRule(),
+  new SwedishRule(),
 ]
 
 export const RuleRegistry = {
@@ -38,7 +42,9 @@ export const RULE_CATEGORIES = [
   { label: 'abc / EQIDEN', description: 'abc形式・駅伝形式のルール',
     ruleIds: ['up_down', 'rensoto_tsuki'] },
   { label: 'STU', description: 'ポイント制ルール',
-    ruleIds: ['by'] },
+    ruleIds: ['by', 'swedish'] },
+  { label: 'Penalty', description: 'ペナルティ・フリーズ系ルール',
+    ruleIds: ['freeze'] },
 ] as const
 
 export type { QuizRule }
