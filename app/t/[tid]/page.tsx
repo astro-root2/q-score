@@ -13,7 +13,7 @@ export default async function TournamentDashboard({ params }: Props) {
   if (!tournament) notFound()
 
   const { data: rounds } = await supabase
-    .from('rounds').select('*, matches(*)').eq('tournament_id', tid).order('order_num')
+    .from('rounds').select('*, matches(*)').eq('tournament_id', tid).order('order_index')
 
   const { data: participants } = await supabase
     .from('participants').select('id').eq('tournament_id', tid).eq('status', 'active')
