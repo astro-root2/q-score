@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: #2d4fff;
+    --brand-dark: #1832f5;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    touch-action: manipulation;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-zinc-950 text-zinc-100 antialiased;
+    font-feature-settings: 'pnum' 1, 'tnum' 1;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-400;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-zinc-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-zinc-600 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-zinc-500; }
+}
+
+@layer components {
+  .player-card {
+    @apply relative flex flex-col rounded-xl border-2 transition-all duration-150
+           cursor-pointer select-none;
+  }
+  .player-card:hover:not(.player-card--disabled) {
+    @apply scale-[1.02] brightness-110;
+  }
+  .player-card--active    { @apply bg-zinc-800 border-zinc-600; }
+  .player-card--selected  { @apply bg-zinc-700 border-brand-400 ring-2 ring-brand-400/50; }
+  .player-card--winner    { @apply bg-green-950 border-green-500 ring-2 ring-green-400/30; }
+  .player-card--eliminated { @apply bg-red-950 border-red-900 opacity-60; }
+  .player-card--resting   { @apply bg-yellow-950 border-yellow-700; }
+  .player-card--withdrawn { @apply bg-zinc-900 border-zinc-800 opacity-40; }
+  .player-card--disabled  { @apply cursor-not-allowed; }
+
+  .btn-correct {
+    @apply flex items-center justify-center rounded-lg font-bold text-white
+           bg-green-600 hover:bg-green-500 active:bg-green-700
+           transition-colors duration-100 select-none
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-wrong {
+    @apply flex items-center justify-center rounded-lg font-bold text-white
+           bg-red-600 hover:bg-red-500 active:bg-red-700
+           transition-colors duration-100 select-none
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .btn-undo {
+    @apply flex items-center gap-2 px-4 py-2 rounded-lg font-semibold
+           bg-zinc-700 hover:bg-zinc-600 active:bg-zinc-800
+           border border-zinc-500 transition-colors duration-100
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold;
+  }
+  .status-badge--winner  { @apply bg-green-500/20 text-green-400 border border-green-500/30; }
+  .status-badge--elim    { @apply bg-red-500/20 text-red-400 border border-red-500/30; }
+  .status-badge--resting { @apply bg-yellow-500/20 text-yellow-400 border border-yellow-500/30; }
+  .status-badge--active  { @apply bg-zinc-500/20 text-zinc-400 border border-zinc-500/30; }
+
+  .display-score {
+    @apply font-mono font-black tabular-nums;
+    text-shadow: 0 0 20px currentColor;
+  }
+}
+
+.obs-root {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  background: transparent;
+}
+
+@keyframes connection-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.connecting { animation: connection-pulse 1.2s ease-in-out infinite; }
