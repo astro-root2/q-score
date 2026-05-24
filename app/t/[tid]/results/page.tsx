@@ -25,14 +25,15 @@ export default async function ResultsPage({ params }: Props) {
   const matchIds = (matches ?? []).map((m: { id: string }) => m.id)
 
   const { data: participants } = await supabase
-    .from('participants').select('*').eq('tournament_id', tid)
+    .from('participants')
+    .select('id, name, ruby, affiliation, paper_rank, final_rank')
+    .eq('tournament_id', tid)
 
   const { data: events } = await supabase
     .from('game_events')
-    .select('*')
+    .select('match_id, event_type, actor_id, undone')
     .in('match_id', matchIds.length ? matchIds : [''])
     .eq('undone', false)
-    .order('seq', { ascending: true })
 
   return (
     <ResultsClient
