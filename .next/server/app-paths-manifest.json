@@ -1,6 +1,0 @@
-{
-  "/t/[tid]/page": "app/t/[tid]/page.js",
-  "/t/[tid]/setup/participants/page": "app/t/[tid]/setup/participants/page.js",
-  "/t/[tid]/paper/page": "app/t/[tid]/paper/page.js",
-  "/t/[tid]/questions/page": "app/t/[tid]/questions/page.js"
-}
