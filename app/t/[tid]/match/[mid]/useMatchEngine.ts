@@ -108,5 +108,42 @@ export function useMatchEngine(matchId: string, initialState: MatchState, initia
     store.applyRemoteState(newState)
   }, [matchId])
 
-  return { dispatch, undo, slash }
+
+  const setQuestionText = useCallback(async (text: string) => {
+    const state = useMatchStore.getState().matchState
+    if (!state) return
+    const newState = { ...state, questionText: text }
+    await supabase.from("matches").update({ game_state: newState }).eq("id", matchId)
+    await supabase.channel(`match:${matchId}`).send({
+      type: "broadcast", event: "STATE_UPDATE", payload: { state: newState }
+    })
+    store.applyRemoteState(newState)
+  }, [matchId])
+
+  const applyAdvantage = useCallback(async (
+    adjustments: Record<string, { correct: number; wrong: number; points: number }>
+  ) => {
+    const state = useMatchStore.getState().matchState
+    if (!state) return
+    const newState = {
+      ...state,
+      players: state.players.map(p => {
+        const adj = adjustments[p.id]
+        if (!adj) return p
+        return {
+          ...p,
+          correct: p.correct + (adj.correct ?? 0),
+          wrong: p.wrong + (adj.wrong ?? 0),
+          points: p.points + (adj.points ?? 0),
+        }
+      }),
+    }
+    await supabase.from("matches").update({ game_state: newState }).eq("id", matchId)
+    await supabase.channel(`match:${matchId}`).send({
+      type: "broadcast", event: "STATE_UPDATE", payload: { state: newState }
+    })
+    store.applyRemoteState(newState)
+  }, [matchId])
+
+  return { dispatch, undo, slash, applyAdvantage, setQuestionText }
 }
