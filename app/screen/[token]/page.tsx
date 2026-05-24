@@ -5,29 +5,72 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { RuleRegistry } from '@/lib/engine/rules'
 import type { MatchState, PlayerState } from '@/lib/engine/types'
-import { cn } from '@/lib/utils/cn'
 
+/* ─────────────────────────────────────────────
+   型定義
+───────────────────────────────────────────── */
+interface MatchMeta {
+  matchName: string
+  tournamentName: string
+  roundName: string
+  ruleName: string
+  totalQuestions: number | null
+}
+
+/* ─────────────────────────────────────────────
+   メインページ
+───────────────────────────────────────────── */
 export default function ScreenPage() {
   const { token } = useParams<{ token: string }>()
   const supabase = createClient()
+
   const [state, setState] = useState<MatchState | null>(null)
+  const [meta, setMeta] = useState<MatchMeta | null>(null)
   const [matchId, setMatchId] = useState<string | null>(null)
   const [flash, setFlash] = useState<{ id: string; type: 'correct' | 'wrong' } | null>(null)
   const prevState = useRef<MatchState | null>(null)
 
   useEffect(() => {
-    supabase.from('matches').select('id, game_state').eq('display_token', token).single()
-      .then(({ data }) => {
-        if (!data) return
-        setMatchId(data.id)
-        setState(data.game_state as MatchState)
-        prevState.current = data.game_state as MatchState
+    if (!token) return
+    ;(async () => {
+      const { data: match } = await supabase
+        .from('matches')
+        .select('id, name, game_state, round_id, rounds(name, rule_id, tournament_id, tournaments(name))')
+        .eq('display_token', token)
+        .single()
+
+      if (!match) return
+
+      const round = (match as { rounds?: { name?: string; rule_id?: string; tournament_id?: string; tournaments?: { name?: string } } }).rounds ?? {}
+      const rule = RuleRegistry.find(round.rule_id ?? '')
+
+      // 問題数を取得
+      let totalQuestions: number | null = null
+      if (round.tournament_id) {
+        const { count } = await supabase
+          .from('questions')
+          .select('id', { count: 'exact', head: true })
+          .eq('tournament_id', round.tournament_id)
+        totalQuestions = count
+      }
+
+      setMatchId(match.id)
+      setState(match.game_state as MatchState)
+      prevState.current = match.game_state as MatchState
+      setMeta({
+        matchName: (match.game_state as MatchState)?.matchName ?? match.name ?? '',
+        tournamentName: round.tournaments?.name ?? '',
+        roundName: round.name ?? '',
+        ruleName: rule?.name ?? round.rule_id ?? '',
+        totalQuestions,
       })
+    })()
   }, [token])
 
   useEffect(() => {
     if (!matchId) return
-    const ch = supabase.channel(`match:${matchId}`)
+    const ch = supabase
+      .channel(`match:${matchId}`)
       .on('broadcast', { event: 'STATE_UPDATE' }, ({ payload }) => {
         const next = payload.state as MatchState
         if (prevState.current) {
@@ -47,13 +90,13 @@ export default function ScreenPage() {
   }, [matchId])
 
   if (!state) return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-zinc-600 text-2xl tracking-widest animate-pulse font-thin">WAITING...</div>
+    <div style={styles.root}>
+      <div style={styles.waiting}>WAITING...</div>
     </div>
   )
 
   if (state.status === 'completed') {
-    return <CompletedScreen state={state} />
+    return <CompletedScreen state={state} meta={meta} />
   }
 
   const rule = RuleRegistry.find(state.ruleId)
@@ -62,55 +105,102 @@ export default function ScreenPage() {
   const eliminated = state.players.filter(p => p.status === 'eliminated')
   const resting    = state.players.filter(p => p.status === 'resting')
 
+  const activePct  = active.length
+  const totalCount = state.players.length
+  const qNum       = state.questionNumber
+  const totalQ     = meta?.totalQuestions
+
   return (
-    <div
-      className="min-h-screen bg-black text-white flex flex-col select-none overflow-hidden"
-      style={{ fontFamily: "'Hiragino Sans', 'Yu Gothic', sans-serif" }}
-    >
+    <div style={styles.root}>
+      {/* フラッシュ */}
       {flash && (
-        <div className={cn(
-          'fixed inset-0 pointer-events-none z-50',
-          flash.type === 'correct' ? 'bg-emerald-400/8' : 'bg-red-500/8'
-        )} />
+        <div style={{
+          ...styles.flashOverlay,
+          background: flash.type === 'correct'
+            ? 'rgba(16,185,129,0.07)'
+            : 'rgba(239,68,68,0.07)',
+        }} />
       )}
 
-      <header className="flex items-center justify-between px-6 py-3 border-b border-zinc-900 shrink-0">
-        <div className="flex items-center gap-4">
-          <span className="text-zinc-200 font-bold text-lg tracking-wide">{state.matchName}</span>
-          <span className="text-zinc-600 text-xs bg-zinc-900 px-3 py-1 rounded-full">{rule?.name}</span>
+      {/* ─── ヘッダー ─── */}
+      <header style={styles.header}>
+        {/* 左: ロゴ + 大会名 + ラウンド名 */}
+        <div style={styles.headerLeft}>
+          <div style={styles.logoBox}>
+            <span style={styles.logoText}>Q</span>
+          </div>
+          <div>
+            {meta?.tournamentName && (
+              <div style={styles.tournamentName}>{meta.tournamentName}</div>
+            )}
+            <div style={styles.matchName}>{meta?.matchName ?? state.matchName}</div>
+            {meta?.roundName && (
+              <div style={styles.roundName}>{meta.roundName}</div>
+            )}
+          </div>
+        </div>
+
+        {/* 右: ステータス情報 */}
+        <div style={styles.headerRight}>
+          {/* ルール */}
+          {meta?.ruleName && (
+            <div style={styles.infoPill}>
+              <span style={styles.infoLabel}>RULE</span>
+              <span style={styles.infoValue}>{meta.ruleName}</span>
+            </div>
+          )}
+
+          {/* 問題番号 / 総問題数 */}
+          {qNum > 0 && (
+            <div style={styles.infoPill}>
+              <span style={styles.infoLabel}>Q</span>
+              <span style={styles.qNum}>{qNum}</span>
+              {totalQ && (
+                <span style={styles.infoLabel}>/ {totalQ}</span>
+              )}
+            </div>
+          )}
+
+          {/* 人数 */}
+          <div style={styles.infoPill}>
+            <span style={styles.infoLabel}>残</span>
+            <span style={styles.infoValue}>{activePct}</span>
+            <span style={styles.infoLabel}>/ {totalCount}</span>
+          </div>
+
+          {/* 一時停止バッジ */}
           {state.status === 'paused' && (
-            <span className="text-yellow-400 text-xs bg-yellow-950/50 px-3 py-1 rounded-full animate-pulse">一時停止中</span>
+            <div style={styles.pauseBadge}>⏸ 一時停止</div>
           )}
         </div>
-        {state.questionNumber > 0 && (
-          <div className="flex items-baseline gap-1">
-            <span className="text-zinc-600 text-sm">Q</span>
-            <span className="text-white text-5xl font-black tabular-nums">{state.questionNumber}</span>
-          </div>
-        )}
       </header>
 
+      {/* ─── 問題文 ─── */}
       {state.questionText && (
-        <div className="px-6 py-2.5 bg-zinc-950 border-b border-zinc-900 shrink-0">
+        <div style={styles.questionBar}>
           <QuestionDisplay text={state.questionText} />
         </div>
       )}
 
+      {/* ─── 勝ち抜け帯 ─── */}
       {winners.length > 0 && (
-        <div className="flex gap-2 px-6 py-2 bg-emerald-950/40 border-b border-emerald-900/40 flex-wrap shrink-0">
+        <div style={styles.winnersBar}>
           {winners.map(p => (
-            <div key={p.id} className="flex items-center gap-2 bg-emerald-900/50 border border-emerald-600/40 rounded-full px-4 py-1">
-              <span className="text-emerald-300 font-bold text-sm">✓ {p.name}</span>
+            <div key={p.id} style={styles.winnerChip}>
+              <span style={{ marginRight: 6 }}>🏆</span>
+              {p.name}
             </div>
           ))}
         </div>
       )}
 
-      {/* 横一列グリッド: 人数=列数 */}
-      <div className="flex-1 px-4 py-4 min-h-0">
+      {/* ─── プレイヤーグリッド（横一列） ─── */}
+      <div style={styles.gridWrapper}>
         <div
-          className="h-full grid gap-2"
-          style={{ gridTemplateColumns: `repeat(${active.length}, minmax(0, 1fr))` }}
+          style={{
+            ...styles.grid,
+            gridTemplateColumns: `repeat(${active.length}, minmax(0, 1fr))`,
+          }}
         >
           {active.map(p => (
             <PlayerCard
@@ -124,13 +214,16 @@ export default function ScreenPage() {
         </div>
       </div>
 
+      {/* ─── フッター: 脱落・休み ─── */}
       {(eliminated.length > 0 || resting.length > 0) && (
-        <div className="flex flex-wrap gap-2 px-6 py-2.5 border-t border-zinc-900 shrink-0">
+        <div style={styles.footer}>
           {eliminated.map(p => (
-            <span key={p.id} className="text-xs text-zinc-700 line-through px-2 py-0.5 bg-zinc-950 rounded">{p.name}</span>
+            <span key={p.id} style={styles.eliminatedChip}>{p.name}</span>
           ))}
           {resting.map(p => (
-            <span key={p.id} className="text-xs text-yellow-600 px-2 py-0.5 bg-yellow-950/30 rounded">{p.name} 休{p.restRemaining}</span>
+            <span key={p.id} style={styles.restingChip}>
+              {p.name} 休{p.restRemaining}
+            </span>
           ))}
         </div>
       )}
@@ -138,11 +231,13 @@ export default function ScreenPage() {
   )
 }
 
-function CompletedScreen({ state }: { state: MatchState }) {
+/* ─────────────────────────────────────────────
+   試合終了画面
+───────────────────────────────────────────── */
+function CompletedScreen({ state, meta }: { state: MatchState; meta: MatchMeta | null }) {
+  const rule    = RuleRegistry.find(state.ruleId)
   const winners = state.players.filter(p => p.status === 'winner')
-  const rule = RuleRegistry.find(state.ruleId)
-
-  const ranked = [...state.players]
+  const ranked  = [...state.players]
     .filter(p => p.status !== 'winner')
     .sort((a, b) => {
       const da = rule?.getScoreDisplay(a, state.ruleParams)
@@ -151,22 +246,22 @@ function CompletedScreen({ state }: { state: MatchState }) {
     })
 
   return (
-    <div
-      className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-8 select-none"
-      style={{ fontFamily: "'Hiragino Sans', 'Yu Gothic', sans-serif" }}
-    >
-      <div className="text-zinc-600 text-sm tracking-[0.3em] uppercase">Result</div>
-      <div className="text-zinc-300 font-bold text-xl">{state.matchName}</div>
+    <div style={{ ...styles.root, alignItems: 'center', justifyContent: 'center', gap: 36 }}>
+      {meta?.tournamentName && (
+        <div style={{ color: '#94a3b8', fontSize: 14, letterSpacing: '0.2em' }}>{meta.tournamentName}</div>
+      )}
+      <div style={{ color: '#f1f5f9', fontWeight: 700, fontSize: 22 }}>{meta?.matchName ?? state.matchName}</div>
+      <div style={{ color: '#64748b', fontSize: 12, letterSpacing: '0.3em', textTransform: 'uppercase' }}>Result</div>
 
       {winners.length > 0 && (
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-zinc-500 text-xs tracking-widest">WINNER</div>
-          <div className="flex flex-wrap gap-4 justify-center">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div style={{ color: '#64748b', fontSize: 11, letterSpacing: '0.3em' }}>WINNER</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
             {winners.map(p => (
-              <div key={p.id} className="flex flex-col items-center gap-2 bg-emerald-900/30 border border-emerald-500/40 rounded-2xl px-8 py-5">
-                <span className="text-4xl">🏆</span>
-                <span className="text-emerald-300 font-black text-2xl">{p.name}</span>
-                {p.affiliation && <span className="text-zinc-500 text-sm">{p.affiliation}</span>}
+              <div key={p.id} style={styles.winnerCard}>
+                <span style={{ fontSize: 40 }}>🏆</span>
+                <span style={{ color: '#f59e0b', fontWeight: 900, fontSize: 28 }}>{p.name}</span>
+                {p.affiliation && <span style={{ color: '#64748b', fontSize: 13 }}>{p.affiliation}</span>}
               </div>
             ))}
           </div>
@@ -174,16 +269,21 @@ function CompletedScreen({ state }: { state: MatchState }) {
       )}
 
       {ranked.length > 0 && (
-        <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 700 }}>
           {ranked.map((p, i) => (
-            <div key={p.id} className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-xl text-sm border',
-              p.status === 'eliminated'
-                ? 'border-zinc-800 text-zinc-600 bg-zinc-950'
-                : 'border-zinc-700 text-zinc-400 bg-zinc-900'
-            )}>
-              <span className="text-zinc-600 text-xs">{i + 1}</span>
-              <span className={cn(p.status === 'eliminated' && 'line-through')}>{p.name}</span>
+            <div key={p.id} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '8px 16px', borderRadius: 12,
+              background: 'rgba(30,41,59,0.6)',
+              border: `1px solid rgba(255,255,255,${p.status === 'eliminated' ? 0.04 : 0.08})`,
+              opacity: p.status === 'eliminated' ? 0.45 : 1,
+            }}>
+              <span style={{ color: '#475569', fontSize: 12 }}>{i + 1}</span>
+              <span style={{
+                color: '#cbd5e1',
+                textDecoration: p.status === 'eliminated' ? 'line-through' : 'none',
+                fontSize: 14,
+              }}>{p.name}</span>
             </div>
           ))}
         </div>
@@ -192,80 +292,418 @@ function CompletedScreen({ state }: { state: MatchState }) {
   )
 }
 
+/* ─────────────────────────────────────────────
+   問題文
+───────────────────────────────────────────── */
 function QuestionDisplay({ text }: { text: string }) {
   const parts = text.split('/')
   return (
-    <p className="text-zinc-200 text-base leading-relaxed">
+    <p style={{ margin: 0, color: '#e2e8f0', fontSize: 15, lineHeight: 1.6 }}>
       {parts.map((part, i) => (
         <span key={i}>
           {part}
-          {i < parts.length - 1 && <span className="text-blue-400 font-black mx-1 text-lg">/</span>}
+          {i < parts.length - 1 && (
+            <span style={{ color: '#60a5fa', fontWeight: 900, margin: '0 6px', fontSize: 18 }}>/</span>
+          )}
         </span>
       ))}
     </p>
   )
 }
 
+/* ─────────────────────────────────────────────
+   プレイヤーカード
+───────────────────────────────────────────── */
 function PlayerCard({ player, rule, params, flash }: {
   player: PlayerState
   rule: ReturnType<typeof RuleRegistry.find>
   params: Record<string, number | string | boolean>
   flash: 'correct' | 'wrong' | null
 }) {
-  const display = rule?.getScoreDisplay(player, params)
+  const display  = rule?.getScoreDisplay(player, params)
   const towerPct = display?.towerMax && display.towerMax > 0
-    ? Math.min((display.towerValue ?? 0) / display.towerMax * 100, 100) : 0
+    ? Math.min((display.towerValue ?? 0) / display.towerMax * 100, 100)
+    : 0
+
+  const borderColor = flash === 'correct'
+    ? 'rgba(16,185,129,0.8)'
+    : flash === 'wrong'
+      ? 'rgba(239,68,68,0.6)'
+      : 'rgba(255,255,255,0.08)'
+
+  const shadowGlow = flash === 'correct'
+    ? '0 0 32px rgba(16,185,129,0.25)'
+    : flash === 'wrong'
+      ? '0 0 20px rgba(239,68,68,0.2)'
+      : '0 4px 6px rgba(0,0,0,0.3)'
+
+  const scoreColor = flash === 'correct'
+    ? '#10b981'
+    : flash === 'wrong'
+      ? '#ef4444'
+      : '#3b82f6'
+
+  const scoreGlow = flash === 'correct'
+    ? '0 0 24px rgba(16,185,129,0.5)'
+    : flash === 'wrong'
+      ? 'none'
+      : '0 0 20px rgba(59,130,246,0.4)'
+
+  const towerGrad = flash === 'correct'
+    ? 'linear-gradient(to top, rgba(16,185,129,0.25), rgba(16,185,129,0.5))'
+    : 'linear-gradient(to top, rgba(59,130,246,0.18), rgba(59,130,246,0.45))'
+
+  const scale = flash ? 'scale(1.04)' : 'scale(1)'
 
   return (
-    <div className={cn(
-      'relative flex flex-col rounded-2xl overflow-hidden border transition-all duration-200 h-full',
-      'bg-zinc-950 border-zinc-800',
-      flash === 'correct' && 'border-emerald-400 shadow-2xl shadow-emerald-400/25 scale-[1.03] z-10',
-      flash === 'wrong'   && 'border-red-500/70 shadow-xl shadow-red-500/15',
-    )}>
-      {/* 名前エリア */}
-      <div className="px-2 pt-4 pb-2 text-center flex flex-col items-center justify-center gap-0.5 shrink-0">
-        <div className="text-white font-bold text-sm leading-tight break-all">{player.name}</div>
-        {player.affiliation && <div className="text-zinc-600 text-xs">{player.affiliation}</div>}
+    <div style={{
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      background: 'rgba(30,41,59,0.7)',
+      border: `1px solid ${borderColor}`,
+      borderRadius: 12,
+      padding: '14px 8px',
+      height: '100%',
+      overflow: 'hidden',
+      backdropFilter: 'blur(10px)',
+      boxShadow: shadowGlow,
+      transform: scale,
+      transition: 'all 0.25s ease',
+    }}>
+      {/* タワーバー */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0,
+        width: '100%',
+        height: `${towerPct}%`,
+        background: towerGrad,
+        transition: 'height 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }} />
+
+      {/* 縦書き名前エリア */}
+      <div style={{
+        display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 2,
+        height: 180,
+        width: '100%',
+        marginBottom: 8,
+        position: 'relative',
+        zIndex: 2,
+      }}>
+        {player.affiliation && (
+          <div style={{
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            color: '#06b6d4',
+            fontSize: 11,
+            fontWeight: 400,
+            opacity: 0.8,
+            letterSpacing: 1,
+            width: 18,
+            textAlign: 'center',
+          }}>
+            {player.affiliation}
+          </div>
+        )}
+        <div style={{
+          writingMode: 'vertical-rl',
+          textOrientation: 'upright',
+          color: flash ? '#f1f5f9' : '#cbd5e1',
+          fontSize: 22,
+          fontWeight: 700,
+          letterSpacing: 2,
+          width: 36,
+          textAlign: 'center',
+          transition: 'color 0.2s',
+        }}>
+          {player.name}
+        </div>
+        {player.nickname && (
+          <div style={{
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            color: '#94a3b8',
+            fontSize: 11,
+            fontWeight: 400,
+            opacity: 0.7,
+            letterSpacing: 1,
+            width: 18,
+            textAlign: 'center',
+          }}>
+            {player.nickname}
+          </div>
+        )}
       </div>
 
-      {/* タワー+スコア: 残り高さを全部使う */}
-      <div className="relative flex-1 mx-2 mb-3 rounded-xl overflow-hidden bg-zinc-900 min-h-[80px]">
-        <div
-          className={cn(
-            'absolute bottom-0 inset-x-0 transition-all duration-700 ease-out',
-            flash === 'correct' ? 'bg-emerald-500' : 'bg-blue-800'
-          )}
-          style={{ height: `${towerPct}%` }}
-        />
-        <div className="relative z-10 h-full flex flex-col items-center justify-center gap-1">
-          <span className={cn(
-            'font-black tabular-nums leading-none text-4xl',
-            flash === 'correct' ? 'text-emerald-300' :
-            flash === 'wrong'   ? 'text-red-300' : 'text-white'
-          )}>
-            {display?.primary ?? '0'}
-          </span>
-          {display?.detail && <span className="text-yellow-400 text-xs">{display.detail}</span>}
-          {(player.correct > 0 || player.wrong > 0) && (
-            <div className="flex gap-2 text-xs mt-1">
-              {player.correct > 0 && <span className="text-emerald-400">{player.correct}○</span>}
-              {player.wrong > 0   && <span className="text-red-400">{player.wrong}✕</span>}
-            </div>
-          )}
+      {/* スコアエリア */}
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 4,
+        flex: 1,
+        justifyContent: 'center',
+        width: '100%',
+      }}>
+        {/* メインスコア */}
+        <div style={{
+          fontSize: 56,
+          fontWeight: 800,
+          color: scoreColor,
+          lineHeight: 1,
+          textShadow: scoreGlow,
+          transition: 'color 0.2s, text-shadow 0.2s',
+          textAlign: 'center',
+        }}>
+          {display?.primary ?? '0'}
         </div>
 
-        {flash === 'correct' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-5xl drop-shadow-lg">⭕</span>
+        {/* サブ情報 */}
+        {display?.detail && (
+          <div style={{ color: '#f59e0b', fontSize: 12, fontWeight: 600 }}>
+            {display.detail}
           </div>
         )}
-        {flash === 'wrong' && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <span className="text-5xl drop-shadow-lg">❌</span>
+
+        {/* 正解数/誤答数 */}
+        {(player.correct > 0 || player.wrong > 0) && (
+          <div style={{ display: 'flex', gap: 10, fontSize: 13, marginTop: 4 }}>
+            {player.correct > 0 && (
+              <span style={{ color: '#10b981', fontWeight: 700 }}>{player.correct}○</span>
+            )}
+            {player.wrong > 0 && (
+              <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                {'×'.repeat(Math.min(player.wrong, 5))}{player.wrong > 5 ? `(${player.wrong})` : ''}
+              </span>
+            )}
           </div>
         )}
       </div>
+
+      {/* フラッシュアイコン */}
+      {flash === 'correct' && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 64, pointerEvents: 'none', zIndex: 3, opacity: 0.7,
+        }}>⭕</div>
+      )}
+      {flash === 'wrong' && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 64, pointerEvents: 'none', zIndex: 3, opacity: 0.7,
+        }}>❌</div>
+      )}
     </div>
   )
+}
+
+/* ─────────────────────────────────────────────
+   スタイル定数
+───────────────────────────────────────────── */
+const styles: Record<string, React.CSSProperties> = {
+  root: {
+    minHeight: '100vh',
+    background: '#0f172a',
+    backgroundImage: 'radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 100%)',
+    color: '#f1f5f9',
+    display: 'flex',
+    flexDirection: 'column',
+    padding: '16px',
+    gap: 12,
+    fontFamily: "'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Meiryo', system-ui, sans-serif",
+    userSelect: 'none',
+    overflow: 'hidden',
+  },
+  waiting: {
+    color: '#334155',
+    fontSize: 24,
+    letterSpacing: '0.3em',
+    animation: 'pulse 2s infinite',
+    fontWeight: 300,
+  },
+  flashOverlay: {
+    position: 'fixed',
+    inset: 0,
+    pointerEvents: 'none',
+    zIndex: 50,
+    transition: 'opacity 0.2s',
+  },
+  header: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    padding: '14px 20px',
+    background: 'rgba(15,23,42,0.8)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    backdropFilter: 'blur(10px)',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.3)',
+    flexShrink: 0,
+  },
+  headerLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+  },
+  logoBox: {
+    width: 40, height: 40,
+    background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+    borderRadius: 8,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontWeight: 900, fontSize: 18, color: '#fff',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+    flexShrink: 0,
+  },
+  logoText: {
+    fontFamily: 'monospace',
+    letterSpacing: '-1px',
+  },
+  tournamentName: {
+    fontSize: 11,
+    color: '#94a3b8',
+    letterSpacing: '0.1em',
+    marginBottom: 1,
+  },
+  matchName: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: '#f1f5f9',
+    letterSpacing: '0.05em',
+    lineHeight: 1.2,
+  },
+  roundName: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 1,
+  },
+  headerRight: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  infoPill: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: 4,
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 6,
+    padding: '4px 10px',
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: 700,
+    letterSpacing: '0.05em',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#e2e8f0',
+    fontWeight: 700,
+  },
+  qNum: {
+    fontSize: 22,
+    color: '#f1f5f9',
+    fontWeight: 900,
+    lineHeight: 1,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  pauseBadge: {
+    fontSize: 12,
+    color: '#fbbf24',
+    background: 'rgba(245,158,11,0.15)',
+    border: '1px solid rgba(245,158,11,0.3)',
+    borderRadius: 6,
+    padding: '4px 10px',
+  },
+  questionBar: {
+    padding: '10px 18px',
+    background: 'rgba(15,23,42,0.7)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 10,
+    flexShrink: 0,
+  },
+  winnersBar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 8,
+    padding: '8px 14px',
+    background: 'rgba(16,185,129,0.05)',
+    border: '1px solid rgba(16,185,129,0.2)',
+    borderRadius: 10,
+    flexShrink: 0,
+  },
+  winnerChip: {
+    display: 'flex',
+    alignItems: 'center',
+    background: 'rgba(16,185,129,0.15)',
+    border: '1px solid rgba(16,185,129,0.35)',
+    borderRadius: 20,
+    padding: '4px 14px',
+    fontSize: 13,
+    fontWeight: 700,
+    color: '#6ee7b7',
+  },
+  gridWrapper: {
+    flex: 1,
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  grid: {
+    flex: 1,
+    display: 'grid',
+    gap: 10,
+    alignItems: 'stretch',
+    height: '100%',
+  },
+  footer: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 6,
+    padding: '8px 4px',
+    flexShrink: 0,
+  },
+  eliminatedChip: {
+    fontSize: 12,
+    color: '#334155',
+    textDecoration: 'line-through',
+    background: 'rgba(15,23,42,0.8)',
+    padding: '2px 8px',
+    borderRadius: 4,
+  },
+  restingChip: {
+    fontSize: 12,
+    color: '#92400e',
+    background: 'rgba(245,158,11,0.1)',
+    border: '1px solid rgba(245,158,11,0.2)',
+    padding: '2px 8px',
+    borderRadius: 4,
+  },
+  winnerCard: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    background: 'rgba(245,158,11,0.08)',
+    border: '1px solid rgba(245,158,11,0.3)',
+    borderRadius: 20,
+    padding: '20px 32px',
+  },
 }
