@@ -10,7 +10,7 @@ import type { MatchState, GameEvent, EventType, RuleParamDef } from '@/lib/engin
 import {
   Wifi, WifiOff, Play, Pause, Square,
   Check, X, Minus, SkipForward, RotateCcw,
-  ChevronDown, ChevronUp, Radio, Monitor,
+  ChevronDown, ChevronUp, Radio, Monitor, Eye,
   Slash, Save,
 } from 'lucide-react'
 import { selectCanUndo } from '@/store/matchStore'
@@ -24,9 +24,10 @@ interface Props {
   rule: { id: string; name: string; paramDefs: RuleParamDef[] }
   obsToken: string
   displayToken: string
+  staffToken: string
 }
 
-export default function MatchConsole({ matchId, initialState, initialEvents, rule, tournamentId, obsToken, displayToken }: Props) {
+export default function MatchConsole({ matchId, initialState, initialEvents, rule, tournamentId, obsToken, displayToken, staffToken }: Props) {
   const { dispatch, undo, slash, applyAdvantage, setQuestionText } = useMatchEngine(matchId, initialState, initialEvents)
   const { setSelectedPlayer, matchState, selectedPlayerId, isConnected, error } = useMatchStore()
   const canUndo = useMatchStore(selectCanUndo)
@@ -52,14 +53,15 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
     if (type === 'CORRECT' || type === 'WRONG') setSelectedPlayer(null)
   }
 
-  const obsUrl = typeof window !== 'undefined' ? `${window.location.origin}/obs/${obsToken}` : ''
+  const obsUrl   = typeof window !== 'undefined' ? `${window.location.origin}/obs/${obsToken}` : ''
   const screenUrl = typeof window !== 'undefined' ? `${window.location.origin}/screen/${displayToken}` : ''
+  const staffUrl  = typeof window !== 'undefined' ? `${window.location.origin}/staff/${staffToken}` : ''
 
   const statusLabel = { pending: '待機中', active: '進行中', paused: '一時停止', completed: '終了' }[status]
   const statusColor = {
-    pending: 'text-zinc-400 bg-zinc-800',
-    active: 'text-emerald-300 bg-emerald-900/40',
-    paused: 'text-yellow-300 bg-yellow-900/40',
+    pending:   'text-zinc-400 bg-zinc-800',
+    active:    'text-emerald-300 bg-emerald-900/40',
+    paused:    'text-yellow-300 bg-yellow-900/40',
     completed: 'text-blue-300 bg-blue-900/40',
   }[status]
 
@@ -120,6 +122,10 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
               className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-lg text-xs transition-colors">
               <Radio size={12} /> OBS
             </a>
+            <a href={staffUrl} target="_blank"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white rounded-lg text-xs transition-colors">
+              <Eye size={12} /> スタッフ
+            </a>
           </div>
         </div>
         {error && (
@@ -174,7 +180,6 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
       {/* メイン: プレイヤーグリッド + アクションパネル */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
 
-        {/* プレイヤーグリッド */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
           <PlayerGrid
             ruleId={rule.id}
@@ -182,10 +187,7 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
           />
         </div>
 
-        {/* アクションパネル */}
         <div className="flex flex-col gap-3">
-
-          {/* 選択中プレイヤー */}
           <div className={cn(
             'rounded-2xl border px-4 py-3 transition-all min-h-[60px] flex items-center',
             selectedPlayer ? 'bg-blue-950/40 border-blue-700/60' : 'bg-zinc-900 border-zinc-800'
@@ -205,7 +207,6 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
             )}
           </div>
 
-          {/* 正解・誤答・パス */}
           <div className="flex flex-col gap-2">
             <button
               disabled={!canAct}
@@ -242,7 +243,6 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
             </button>
           </div>
 
-          {/* 次の問題・アンドゥ */}
           <div className="flex flex-col gap-2">
             <button
               disabled={!isActive}

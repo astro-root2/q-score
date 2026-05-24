@@ -63,6 +63,7 @@ export default async function MatchPage({ params }: Props) {
       initialEvents={events ?? []}
       rule={{ id: rule.id, name: rule.name, paramDefs: rule.paramDefs }}
       obsToken={match.obs_token}
+      staffToken={match.staff_token}
       displayToken={match.display_token}
     />
   )
