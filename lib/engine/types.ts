@@ -1,33 +1,25 @@
-export type PlayerStatus =
-  | 'active'
-  | 'winner'
-  | 'eliminated'
-  | 'resting'
-  | 'withdrawn'
-
+export type PlayerStatus = 'active' | 'winner' | 'eliminated' | 'resting' | 'withdrawn'
 export type MatchStatus = 'pending' | 'active' | 'paused' | 'completed'
-
 export type EventType =
-  | 'MATCH_START'
-  | 'MATCH_PAUSE'
-  | 'MATCH_RESUME'
-  | 'MATCH_END'
-  | 'QUESTION_NEXT'
-  | 'QUESTION_SKIP'
-  | 'CORRECT'
-  | 'WRONG'
-  | 'PASS'
-  | 'REST_START'
-  | 'REST_END'
-  | 'WIN'
-  | 'ELIMINATE'
-  | 'UNDO'
-  | 'OVERRIDE'
+  | 'MATCH_START' | 'MATCH_PAUSE' | 'MATCH_RESUME' | 'MATCH_END'
+  | 'CORRECT' | 'WRONG' | 'PASS' | 'QUESTION_NEXT' | 'QUESTION_SLASH'
+  | 'FORCE_WIN' | 'FORCE_ELIMINATE' | 'UNDO'
+
+export interface PlayerOpts {
+  nickname?: string | null
+  affiliation?: string | null
+  grade?: string | null
+  paperRank?: number | null
+}
 
 export interface PlayerState {
   id: string
   name: string
   ruby: string
+  nickname: string | null
+  affiliation: string | null
+  grade: string | null
+  paperRank: number | null
   position: number
   status: PlayerStatus
   correct: number
@@ -47,72 +39,35 @@ export interface MatchState {
   ruleId: string
   ruleParams: Record<string, number | string | boolean>
   questionNumber: number
+  questionText: string | null
   players: PlayerState[]
   eventSeq: number
   updatedAt: string
 }
 
-export interface ScoreDisplay {
-  primary: string
-  secondary: string
-  detail?: string
-}
-
 export interface RuleParamDef {
   key: string
   label: string
-  type: 'number' | 'boolean'
-  defaultValue: number | boolean
+  type: 'number' | 'boolean' | 'string' | 'swedish_table'
+  defaultValue: number | string | boolean
   min?: number
   max?: number
   description?: string
 }
 
-export interface ValidationResult {
-  valid: boolean
-  reason?: string
+export interface ScoreDisplay {
+  primary: string
+  secondary?: string
+  detail?: string
+  towerValue?: number
+  towerMax?: number
 }
+
+export interface ValidationResult { valid: boolean; reason?: string }
 
 export interface StateTransition {
   nextState: MatchState
-  sideEffects: SideEffect[]
-}
-
-export interface SideEffect {
-  type: 'WIN' | 'ELIMINATE' | 'REST_START' | 'REST_END' | 'CHAIN_RESET'
-  playerId: string
-  data?: Record<string, unknown>
-}
-
-export interface QuizRule {
-  readonly id: string
-  readonly name: string
-  readonly shortName: string
-  readonly description: string
-  readonly paramDefs: RuleParamDef[]
-
-  initPlayerState(
-    participantId: string,
-    name: string,
-    ruby: string,
-    position: number,
-    params: Record<string, number | string | boolean>
-  ): PlayerState
-
-  initMatchState(
-    matchId: string,
-    matchName: string,
-    participants: Array<{ id: string; name: string; ruby: string; position: number }>,
-    params: Record<string, number | string | boolean>
-  ): MatchState
-
-  onCorrect(state: MatchState, playerId: string): StateTransition
-  onWrong(state: MatchState, playerId: string): StateTransition
-  onPass(state: MatchState, playerId: string): StateTransition
-  onQuestionNext(state: MatchState): StateTransition
-  canAnswer(state: MatchState, playerId: string): ValidationResult
-  getScoreDisplay(player: PlayerState): ScoreDisplay
-  getRuleSummary(params: Record<string, number | string | boolean>): string
+  sideEffects: Array<{ type: string; payload: Record<string, unknown> }>
 }
 
 export interface GameEvent {
@@ -127,10 +82,21 @@ export interface GameEvent {
   createdAt: string
 }
 
-export interface BroadcastMessage {
-  type: 'STATE_UPDATE' | 'EVENT' | 'SYNC_REQUEST' | 'SYNC_RESPONSE'
-  matchId: string
-  state?: MatchState
-  event?: GameEvent
-  requestId?: string
+export type ParticipantInit = { id: string; name: string; ruby: string; position: number } & PlayerOpts
+
+export interface QuizRule {
+  readonly id: string
+  readonly name: string
+  readonly shortName: string
+  readonly description: string
+  readonly paramDefs: RuleParamDef[]
+  initPlayerState(id: string, name: string, ruby: string, position: number, opts?: PlayerOpts): PlayerState
+  initMatchState(matchId: string, matchName: string, participants: ParticipantInit[], params: Record<string, number | string | boolean>): MatchState
+  canAnswer(state: MatchState, playerId: string): ValidationResult
+  onCorrect(state: MatchState, playerId: string): StateTransition
+  onWrong(state: MatchState, playerId: string): StateTransition
+  onPass(state: MatchState, playerId: string): StateTransition
+  onQuestionNext(state: MatchState): StateTransition
+  getScoreDisplay(player: PlayerState, params?: Record<string, number | string | boolean>): ScoreDisplay
+  getRuleSummary(params: Record<string, number | string | boolean>): string
 }

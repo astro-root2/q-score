@@ -98,5 +98,15 @@ export function useMatchEngine(matchId: string, initialState: MatchState, initia
     store.initialize(result.newState, result.newEvents)
   }, [matchId])
 
-  return { dispatch, undo }
+  const slash = useCallback(async () => {
+    const state = useMatchStore.getState().matchState
+    if (!state) return
+    const newText = (state.questionText ?? "") + "/"
+    const newState = { ...state, questionText: newText }
+    await supabase.from("matches").update({ question_text: newText }).eq("id", matchId)
+    await supabase.channel(`match:${matchId}`).send({ type: "broadcast", event: "STATE_UPDATE", payload: { state: newState } })
+    store.applyRemoteState(newState)
+  }, [matchId])
+
+  return { dispatch, undo, slash }
 }

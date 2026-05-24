@@ -1,50 +1,38 @@
 import type { QuizRule } from '../types'
 import { MonMaruNBatsuRule } from './MonMaruNBatsu'
-import { MonMaruNYasumiRule } from './MonMaruNYasumi'
+import { RensotoAbcRule, RensotoAbcKasoRule } from './RensotoAbc'
 import { UpDownRule } from './UpDown'
-import { RensotoTsukiRule } from './RensotoTsuki'
-import { ByRule } from './By'
+import { ByMRule } from './ByM'
 import { FreezeRule } from './Freeze'
 import { SwedishRule } from './Swedish'
+import { RensotoDisadvantageRule } from './RensotoDisadvantage'
+import { DivideMRule } from './DivideM'
+import { AttackSurvivalRule } from './AttackSurvival'
+import { NewYorkRule } from './NewYork'
 
-const RULE_INSTANCES: QuizRule[] = [
+const RULES: QuizRule[] = [
   new MonMaruNBatsuRule(),
-  new MonMaruNYasumiRule(),
+  new RensotoAbcRule(),
+  new RensotoAbcKasoRule(),
   new UpDownRule(),
-  new RensotoTsukiRule(),
-  new ByRule(),
+  new ByMRule(),
   new FreezeRule(),
   new SwedishRule(),
+  new RensotoDisadvantageRule(),
+  new DivideMRule(),
+  new AttackSurvivalRule(),
+  new NewYorkRule(),
 ]
 
 export const RuleRegistry = {
-  getAll(): QuizRule[] { return RULE_INSTANCES },
-  get(ruleId: string): QuizRule {
-    const rule = RULE_INSTANCES.find(r => r.id === ruleId)
-    if (!rule) throw new Error(`Unknown rule: "${ruleId}"`)
-    return rule
+  getAll: (): QuizRule[] => RULES,
+  get: (id: string): QuizRule => {
+    const r = RULES.find(r => r.id === id)
+    if (!r) throw new Error(`Unknown rule: "${id}"`)
+    return r
   },
-  find(ruleId: string): QuizRule | null {
-    return RULE_INSTANCES.find(r => r.id === ruleId) ?? null
-  },
-  register(rule: QuizRule): void {
-    if (RULE_INSTANCES.find(r => r.id === rule.id)) {
-      console.warn(`Rule "${rule.id}" is already registered. Skipping.`)
-      return
-    }
-    RULE_INSTANCES.push(rule)
-  },
+  find: (id: string): QuizRule | null => RULES.find(r => r.id === id) ?? null,
 }
 
-export const RULE_CATEGORIES = [
-  { label: 'Basic', description: '基本的な正解/誤答カウントルール',
-    ruleIds: ['mon_maru_n_batsu', 'mon_maru_n_yasumi'] },
-  { label: 'abc / EQIDEN', description: 'abc形式・駅伝形式のルール',
-    ruleIds: ['up_down', 'rensoto_tsuki'] },
-  { label: 'STU', description: 'ポイント制ルール',
-    ruleIds: ['by', 'swedish'] },
-  { label: 'Penalty', description: 'ペナルティ・フリーズ系ルール',
-    ruleIds: ['freeze'] },
-] as const
-
 export type { QuizRule }
+export { SWEDISH_DEFAULT_TABLE } from './Swedish'

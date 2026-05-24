@@ -1,113 +1,63 @@
-import type {
-  QuizRule, MatchState, PlayerState, StateTransition,
-  ValidationResult, ScoreDisplay, RuleParamDef
-} from '../types'
-import { cloneState, applyWin, applyEliminate } from './utils'
+import type { QuizRule, MatchState, PlayerState, StateTransition, ValidationResult, ScoreDisplay, RuleParamDef, ParticipantInit, PlayerOpts } from '../types'
+import { cloneState, makePlayerState, makeMatchState, applyWin, applyEliminate, decrementRests, statusReason } from './utils'
 
 export class FreezeRule implements QuizRule {
   readonly id = 'freeze'
-  readonly name = 'フリーズ'
+  readonly name = 'Freeze m'
   readonly shortName = 'FRZ'
-  readonly description = 'N正解で勝ち抜け。誤答でフリーズ（次問解答権なし）。M誤答で失格。'
-
+  readonly description = '誤答で通算誤答数分休み。m問正解で勝ち抜け、n誤答で失格(0=無制限)。'
   readonly paramDefs: RuleParamDef[] = [
-    { key: 'win', label: '勝ち抜け正解数', type: 'number', defaultValue: 7, min: 1, max: 30 },
-    { key: 'lose', label: '失格誤答数', type: 'number', defaultValue: 3, min: 1, max: 10 },
-    { key: 'freeze_count', label: 'フリーズ問題数', type: 'number', defaultValue: 1, min: 1, max: 5 },
+    { key: 'win', label: '勝ち抜け正解数 (m)', type: 'number', defaultValue: 10, min: 1, max: 50 },
+    { key: 'lose', label: '失格誤答数 (n)', type: 'number', defaultValue: 0, min: 0, max: 20, description: '0=無制限' },
   ]
-
-  initPlayerState(id: string, name: string, ruby: string, position: number): PlayerState {
-    return {
-      id, name, ruby, position,
-      status: 'active',
-      correct: 0, wrong: 0, points: 0,
-      restRemaining: 0,
-      hasChain: false, chainCount: 0,
-      lastAnswered: null,
-      extra: { frozen: 0 },
-    }
+  initPlayerState(id: string, name: string, ruby: string, position: number, opts: PlayerOpts = {}): PlayerState {
+    return makePlayerState(id, name, ruby, position, opts)
   }
-
-  initMatchState(
-    matchId: string, matchName: string,
-    participants: Array<{ id: string; name: string; ruby: string; position: number }>,
-    params: Record<string, number | string | boolean>
-  ): MatchState {
-    return {
-      matchId, matchName,
-      status: 'pending',
-      ruleId: this.id,
-      ruleParams: params,
-      questionNumber: 0,
-      players: participants.map(p => this.initPlayerState(p.id, p.name, p.ruby, p.position)),
-      eventSeq: 0,
-      updatedAt: new Date().toISOString(),
-    }
+  initMatchState(matchId: string, matchName: string, participants: ParticipantInit[], params: Record<string, number | string | boolean>): MatchState {
+    return makeMatchState(matchId, matchName, participants, params, this.id, p => this.initPlayerState(p.id, p.name, p.ruby, p.position, p))
   }
-
   canAnswer(state: MatchState, playerId: string): ValidationResult {
     const p = state.players.find(pl => pl.id === playerId)
     if (!p) return { valid: false, reason: 'Player not found' }
-    if (p.status !== 'active') return { valid: false, reason: `Status: ${p.status}` }
-    const frozen = (p.extra.frozen as number) ?? 0
-    if (frozen > 0) return { valid: false, reason: `フリーズ中 (あと${frozen}問)` }
+    if (p.status !== 'active') return { valid: false, reason: statusReason(p.status, p.restRemaining) }
     return { valid: true }
   }
-
   onCorrect(state: MatchState, playerId: string): StateTransition {
     const next = cloneState(state)
     const p = next.players.find(pl => pl.id === playerId)!
-    p.correct++
-    p.lastAnswered = 'correct'
-
-    const win = Number(state.ruleParams.win ?? 7)
-    if (p.correct >= win) return applyWin(next, playerId)
+    p.correct++; p.lastAnswered = 'correct'
+    if (p.correct >= Number(state.ruleParams.win)) return applyWin(next, playerId)
     return { nextState: next, sideEffects: [] }
   }
-
   onWrong(state: MatchState, playerId: string): StateTransition {
     const next = cloneState(state)
     const p = next.players.find(pl => pl.id === playerId)!
-    p.wrong++
-    p.lastAnswered = 'wrong'
-
-    const lose = Number(state.ruleParams.lose ?? 3)
-    const freezeCount = Number(state.ruleParams.freeze_count ?? 1)
-
-    if (p.wrong >= lose) return applyEliminate(next, playerId)
-
-    p.extra = { ...p.extra, frozen: freezeCount }
+    p.wrong++; p.lastAnswered = 'wrong'
+    const lose = Number(state.ruleParams.lose)
+    if (lose > 0 && p.wrong >= lose) return applyEliminate(next, playerId)
+    // 累積誤答数分休み
+    p.status = 'resting'; p.restRemaining = p.wrong
     return { nextState: next, sideEffects: [] }
   }
-
   onPass(state: MatchState, playerId: string): StateTransition {
     const next = cloneState(state)
-    const p = next.players.find(pl => pl.id === playerId)!
-    p.lastAnswered = null
+    next.players.find(pl => pl.id === playerId)!.lastAnswered = null
     return { nextState: next, sideEffects: [] }
   }
-
   onQuestionNext(state: MatchState): StateTransition {
     const next = cloneState(state)
-    next.questionNumber++
-    for (const p of next.players) {
-      if (p.status !== 'active') continue
-      const frozen = (p.extra.frozen as number) ?? 0
-      if (frozen > 0) p.extra = { ...p.extra, frozen: frozen - 1 }
-    }
+    next.questionNumber++; next.questionText = null; decrementRests(next)
     return { nextState: next, sideEffects: [] }
   }
-
-  getScoreDisplay(player: PlayerState): ScoreDisplay {
-    const frozen = (player.extra.frozen as number) ?? 0
+  getScoreDisplay(player: PlayerState, params?: Record<string, number | string | boolean>): ScoreDisplay {
+    const win = params ? Number(params.win) : 10
     return {
-      primary: `${player.correct}○`,
-      secondary: `${player.wrong}✕`,
-      detail: frozen > 0 ? `🧊${frozen}` : undefined,
+      primary: `${player.correct}○`, secondary: `${player.wrong}✕`,
+      detail: player.status === 'resting' ? `🧊あと${player.restRemaining}` : undefined,
+      towerValue: player.correct, towerMax: win,
     }
   }
-
   getRuleSummary(params: Record<string, number | string | boolean>): string {
-    return `${params.win}○${params.lose}✕フリーズ(${params.freeze_count}問)`
+    return `Freeze ${params.win}◯${Number(params.lose) === 0 ? '∞' : params.lose + '✕'}失格`
   }
 }

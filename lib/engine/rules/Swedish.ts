@@ -1,114 +1,79 @@
-import type {
-  QuizRule, MatchState, PlayerState, StateTransition,
-  ValidationResult, ScoreDisplay, RuleParamDef
-} from '../types'
-import { cloneState, applyWin, applyEliminate } from './utils'
+import type { QuizRule, MatchState, PlayerState, StateTransition, ValidationResult, ScoreDisplay, RuleParamDef, ParticipantInit, PlayerOpts } from '../types'
+import { cloneState, makePlayerState, makeMatchState, applyWin, applyEliminate, statusReason } from './utils'
+
+export const SWEDISH_DEFAULT_TABLE = [
+  { minCorrect: 0, wrongCount: 1 },
+  { minCorrect: 1, wrongCount: 2 },
+  { minCorrect: 3, wrongCount: 3 },
+  { minCorrect: 6, wrongCount: 4 },
+  { minCorrect: 10, wrongCount: 5 },
+]
+
+function getWrongCount(correct: number, table: typeof SWEDISH_DEFAULT_TABLE): number {
+  const sorted = [...table].sort((a, b) => b.minCorrect - a.minCorrect)
+  for (const entry of sorted) {
+    if (correct >= entry.minCorrect) return entry.wrongCount
+  }
+  return 1
+}
 
 export class SwedishRule implements QuizRule {
   readonly id = 'swedish'
-  readonly name = 'スウェーデン'
+  readonly name = 'Swedish m'
   readonly shortName = 'SWE'
-  readonly description = '正解でポイントが増加、誤答でリセット。累計ポイントがWin点で勝ち抜け。M誤答で失格。'
-
+  readonly description = '正解+1pt。誤答時に正解数に応じた×数が加算。m正解で勝ち抜け。'
   readonly paramDefs: RuleParamDef[] = [
-    { key: 'win_points', label: '勝ち抜けポイント', type: 'number', defaultValue: 15, min: 1, max: 100 },
-    { key: 'lose', label: '失格誤答数', type: 'number', defaultValue: 3, min: 1, max: 10 },
-    { key: 'base_point', label: '基礎ポイント', type: 'number', defaultValue: 1, min: 1, max: 10 },
-    { key: 'chain_bonus', label: '連続正解ボーナス', type: 'number', defaultValue: 1, min: 0, max: 5 },
+    { key: 'win', label: '勝ち抜け正解数 (m)', type: 'number', defaultValue: 10, min: 1, max: 50 },
+    { key: 'max_wrong', label: '失格×数上限', type: 'number', defaultValue: 0, min: 0, max: 30, description: '0=無制限' },
+    { key: 'table', label: '正解数→×数テーブル', type: 'swedish_table', defaultValue: JSON.stringify(SWEDISH_DEFAULT_TABLE) },
   ]
-
-  initPlayerState(id: string, name: string, ruby: string, position: number): PlayerState {
-    return {
-      id, name, ruby, position,
-      status: 'active',
-      correct: 0, wrong: 0, points: 0,
-      restRemaining: 0,
-      hasChain: false, chainCount: 0,
-      lastAnswered: null,
-      extra: {},
-    }
+  initPlayerState(id: string, name: string, ruby: string, position: number, opts: PlayerOpts = {}): PlayerState {
+    return makePlayerState(id, name, ruby, position, opts, { totalWrong: 0 })
   }
-
-  initMatchState(
-    matchId: string, matchName: string,
-    participants: Array<{ id: string; name: string; ruby: string; position: number }>,
-    params: Record<string, number | string | boolean>
-  ): MatchState {
-    return {
-      matchId, matchName,
-      status: 'pending',
-      ruleId: this.id,
-      ruleParams: params,
-      questionNumber: 0,
-      players: participants.map(p => this.initPlayerState(p.id, p.name, p.ruby, p.position)),
-      eventSeq: 0,
-      updatedAt: new Date().toISOString(),
-    }
+  initMatchState(matchId: string, matchName: string, participants: ParticipantInit[], params: Record<string, number | string | boolean>): MatchState {
+    return makeMatchState(matchId, matchName, participants, params, this.id, p => this.initPlayerState(p.id, p.name, p.ruby, p.position, p))
   }
-
   canAnswer(state: MatchState, playerId: string): ValidationResult {
     const p = state.players.find(pl => pl.id === playerId)
     if (!p) return { valid: false, reason: 'Player not found' }
-    if (p.status !== 'active') return { valid: false, reason: `Status: ${p.status}` }
+    if (p.status !== 'active') return { valid: false, reason: statusReason(p.status, p.restRemaining) }
     return { valid: true }
   }
-
   onCorrect(state: MatchState, playerId: string): StateTransition {
     const next = cloneState(state)
     const p = next.players.find(pl => pl.id === playerId)!
-    const base = Number(state.ruleParams.base_point ?? 1)
-    const bonus = Number(state.ruleParams.chain_bonus ?? 1)
-
-    p.correct++
-    p.chainCount = (p.chainCount ?? 0) + 1
-    p.hasChain = p.chainCount > 1
-    p.lastAnswered = 'correct'
-
-    const gain = base + bonus * (p.chainCount - 1)
-    p.points += gain
-
-    const winPoints = Number(state.ruleParams.win_points ?? 15)
-    if (p.points >= winPoints) return applyWin(next, playerId)
+    p.correct++; p.lastAnswered = 'correct'
+    if (p.correct >= Number(state.ruleParams.win)) return applyWin(next, playerId)
     return { nextState: next, sideEffects: [] }
   }
-
   onWrong(state: MatchState, playerId: string): StateTransition {
     const next = cloneState(state)
     const p = next.players.find(pl => pl.id === playerId)!
-    p.wrong++
-    p.chainCount = 0
-    p.hasChain = false
+    let table = SWEDISH_DEFAULT_TABLE
+    try { table = JSON.parse(String(state.ruleParams.table)) } catch { /* use default */ }
+    const addWrong = getWrongCount(p.correct, table)
+    p.wrong += addWrong
+    p.extra = { ...p.extra, totalWrong: Number(p.extra.totalWrong ?? 0) + addWrong }
     p.lastAnswered = 'wrong'
-
-    const lose = Number(state.ruleParams.lose ?? 3)
-    if (p.wrong >= lose) return applyEliminate(next, playerId)
+    const maxWrong = Number(state.ruleParams.max_wrong)
+    if (maxWrong > 0 && p.wrong >= maxWrong) return applyEliminate(next, playerId)
     return { nextState: next, sideEffects: [] }
   }
-
   onPass(state: MatchState, playerId: string): StateTransition {
     const next = cloneState(state)
-    const p = next.players.find(pl => pl.id === playerId)!
-    p.chainCount = 0
-    p.hasChain = false
-    p.lastAnswered = null
+    next.players.find(pl => pl.id === playerId)!.lastAnswered = null
     return { nextState: next, sideEffects: [] }
   }
-
   onQuestionNext(state: MatchState): StateTransition {
     const next = cloneState(state)
-    next.questionNumber++
+    next.questionNumber++; next.questionText = null
     return { nextState: next, sideEffects: [] }
   }
-
-  getScoreDisplay(player: PlayerState): ScoreDisplay {
-    return {
-      primary: `${player.points}pt`,
-      secondary: `${player.correct}○ ${player.wrong}✕`,
-      detail: player.chainCount > 1 ? `🔥×${player.chainCount}` : undefined,
-    }
+  getScoreDisplay(player: PlayerState, params?: Record<string, number | string | boolean>): ScoreDisplay {
+    const win = params ? Number(params.win) : 10
+    return { primary: `${player.correct}○`, secondary: `${player.wrong}✕`, towerValue: player.correct, towerMax: win }
   }
-
   getRuleSummary(params: Record<string, number | string | boolean>): string {
-    return `累計${params.win_points}pt勝ち抜け ${params.lose}✕失格 (連続ボーナス+${params.chain_bonus})`
+    return `Swedish ${params.win}◯勝ち抜け`
   }
 }

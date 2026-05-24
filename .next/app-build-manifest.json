@@ -26,10 +26,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/t/[tid]/page.js"
     ],
+    "/t/[tid]/setup/participants/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/t/[tid]/setup/participants/page.js"
+    ],
     "/t/[tid]/setup/rounds/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/t/[tid]/setup/rounds/page.js"
+    ],
+    "/t/[tid]/setup/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/t/[tid]/setup/page.js"
     ]
   }
 }
