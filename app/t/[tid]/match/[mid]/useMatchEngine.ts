@@ -46,7 +46,7 @@ export function useMatchEngine(matchId: string, initialState: MatchState, initia
     }
 
     const { data: { user } } = await supabase.auth.getUser()
-    const seq = (useMatchStore.getState().events.filter(e => !e.undone).length) + 1
+    const seq = (useMatchStore.getState().events.length) + 1
 
     const event = {
       match_id: matchId,

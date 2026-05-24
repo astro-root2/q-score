@@ -24,6 +24,12 @@ export default async function MatchPage({ params }: Props) {
   const { data: events } = await supabase
     .from('game_events').select('*').eq('match_id', mid).order('seq')
 
+  const { data: questions } = await supabase
+    .from('questions')
+    .select('id, order_index, body, answer, genre, difficulty, used')
+    .eq('tournament_id', round.tournament_id)
+    .order('order_index')
+
   const rule = RuleRegistry.find(round.rule_id)
   if (!rule) notFound()
 
@@ -63,8 +69,9 @@ export default async function MatchPage({ params }: Props) {
       initialEvents={events ?? []}
       rule={{ id: rule.id, name: rule.name, paramDefs: rule.paramDefs }}
       obsToken={match.obs_token}
-      staffToken={match.staff_token}
       displayToken={match.display_token}
+      staffToken={match.staff_token}
+      questions={questions ?? []}
     />
   )
 }

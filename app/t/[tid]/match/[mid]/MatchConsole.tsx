@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { useMatchStore } from '@/store/matchStore'
 import { useMatchEngine } from './useMatchEngine'
 import PlayerGrid from './PlayerGrid'
@@ -11,10 +12,20 @@ import {
   Wifi, WifiOff, Play, Pause, Square,
   Check, X, Minus, SkipForward, RotateCcw,
   ChevronDown, ChevronUp, Radio, Monitor, Eye,
-  Slash, Save,
+  Slash, Save, BookOpen,
 } from 'lucide-react'
 import { selectCanUndo } from '@/store/matchStore'
 import { cn } from '@/lib/utils/cn'
+
+interface Question {
+  id: string
+  order_index: number
+  body: string
+  answer: string
+  genre: string | null
+  difficulty: number | null
+  used: boolean
+}
 
 interface Props {
   matchId: string
@@ -25,9 +36,11 @@ interface Props {
   obsToken: string
   displayToken: string
   staffToken: string
+  questions: Question[]
 }
 
-export default function MatchConsole({ matchId, initialState, initialEvents, rule, tournamentId, obsToken, displayToken, staffToken }: Props) {
+export default function MatchConsole({ matchId, initialState, initialEvents, rule, tournamentId, obsToken, displayToken, staffToken, questions: initialQuestions }: Props) {
+  const supabase = createClient()
   const { dispatch, undo, slash, applyAdvantage, setQuestionText } = useMatchEngine(matchId, initialState, initialEvents)
   const { setSelectedPlayer, matchState, selectedPlayerId, isConnected, error } = useMatchStore()
   const canUndo = useMatchStore(selectCanUndo)
@@ -38,6 +51,8 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
   const [localText, setLocalText] = useState(matchState?.questionText ?? '')
   const [textDirty, setTextDirty] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [questions, setQuestions] = useState<Question[]>(initialQuestions)
+  const [showAnswer, setShowAnswer] = useState(false)
 
   const status = matchState?.status ?? 'pending'
   const qNum = matchState?.questionNumber ?? 0
@@ -48,9 +63,27 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
   const selectedPlayer = matchState?.players.find(p => p.id === selectedPlayerId) ?? null
   const canAct = isActive && !!selectedPlayerId
 
+  // 問題リスト: order_index順、未使用優先
+  const unusedQuestions = questions.filter(q => !q.used).sort((a, b) => a.order_index - b.order_index)
+  const currentQuestion = unusedQuestions[0] ?? null
+
   const handleDispatch = (type: EventType, actorId?: string) => {
     dispatch(type, actorId)
     if (type === 'CORRECT' || type === 'WRONG') setSelectedPlayer(null)
+  }
+
+  const handleNextQuestion = async () => {
+    // 問題リストがある場合は自動セット
+    if (currentQuestion) {
+      setLocalText(currentQuestion.body)
+      setQuestionText(currentQuestion.body)
+      setTextDirty(false)
+      setShowAnswer(false)
+      // 使用済みにマーク
+      await supabase.from('questions').update({ used: true }).eq('id', currentQuestion.id)
+      setQuestions(prev => prev.map(q => q.id === currentQuestion.id ? { ...q, used: true } : q))
+    }
+    handleDispatch('QUESTION_NEXT')
   }
 
   const obsUrl   = typeof window !== 'undefined' ? `${window.location.origin}/obs/${obsToken}` : ''
@@ -83,8 +116,11 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
                 <span className="text-white font-black text-xl tabular-nums">{qNum}</span>
               </div>
             )}
+            {unusedQuestions.length > 0 && (
+              <span className="text-xs text-zinc-600 shrink-0">残{unusedQuestions.length}問</span>
+            )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             <div className={cn('flex items-center gap-1 text-xs px-2 py-1 rounded-full',
               isConnected ? 'text-emerald-400 bg-emerald-950' : 'text-red-400 bg-red-950')}>
               {isConnected ? <Wifi size={11} /> : <WifiOff size={11} />}
@@ -135,15 +171,15 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
         )}
       </div>
 
-      {/* 問題文バー */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3">
+      {/* 問題バー */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-3 space-y-2">
         <div className="flex items-center gap-2">
           <span className="text-zinc-600 text-xs shrink-0">問題文</span>
           <input
             type="text"
             value={localText}
             onChange={e => { setLocalText(e.target.value); setTextDirty(true) }}
-            placeholder="問題文を入力（任意）"
+            placeholder={currentQuestion ? currentQuestion.body : '問題文を入力（任意）'}
             className="flex-1 bg-zinc-800 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 min-w-0"
           />
           <button
@@ -165,8 +201,27 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
             <Slash size={11} /> /挿入
           </button>
         </div>
+
+        {/* 答え表示（運営のみ） */}
+        {currentQuestion && (
+          <div className="flex items-center gap-2 pl-1">
+            <BookOpen size={11} className="text-zinc-600 shrink-0" />
+            <button
+              onClick={() => setShowAnswer(v => !v)}
+              className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
+              {showAnswer ? '答えを隠す' : '答えを表示'}
+            </button>
+            {showAnswer && (
+              <span className="text-sm font-bold text-emerald-400">{currentQuestion.answer}</span>
+            )}
+            {currentQuestion.genre && (
+              <span className="text-xs text-zinc-600 ml-2">{currentQuestion.genre}</span>
+            )}
+          </div>
+        )}
+
         {matchState?.questionText && (
-          <p className="mt-2 text-sm text-zinc-200 leading-relaxed pl-1">
+          <p className="text-sm text-zinc-200 leading-relaxed pl-1">
             {matchState.questionText.split('/').map((part, i, arr) => (
               <span key={i}>
                 {part}
@@ -177,7 +232,7 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
         )}
       </div>
 
-      {/* メイン: プレイヤーグリッド + アクションパネル */}
+      {/* メイン */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-3">
 
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4">
@@ -188,6 +243,7 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
         </div>
 
         <div className="flex flex-col gap-3">
+          {/* 選択中プレイヤー */}
           <div className={cn(
             'rounded-2xl border px-4 py-3 transition-all min-h-[60px] flex items-center',
             selectedPlayer ? 'bg-blue-950/40 border-blue-700/60' : 'bg-zinc-900 border-zinc-800'
@@ -207,6 +263,7 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
             )}
           </div>
 
+          {/* 正解・誤答・パス */}
           <div className="flex flex-col gap-2">
             <button
               disabled={!canAct}
@@ -243,17 +300,19 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
             </button>
           </div>
 
+          {/* 次の問題・アンドゥ */}
           <div className="flex flex-col gap-2">
             <button
               disabled={!isActive}
-              onClick={() => handleDispatch('QUESTION_NEXT')}
+              onClick={handleNextQuestion}
               className={cn(
                 'flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-base transition-all',
                 isActive
                   ? 'bg-blue-700 hover:bg-blue-600 text-white active:scale-95'
                   : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
               )}>
-              <SkipForward size={18} /> 次の問題
+              <SkipForward size={18} />
+              {currentQuestion ? `次の問題 (残${unusedQuestions.length})` : '次の問題'}
             </button>
             <button
               disabled={!canUndo}
