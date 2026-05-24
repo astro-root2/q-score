@@ -69,11 +69,11 @@ export default function QuestionsClient({ tournament, initialQuestions }: Props)
           id: `new-${Date.now()}-${i}`,
           tournament_id: tournament.id,
           order_index: questions.length + i + 1,
-          body: row['question'] ?? row['body'] ?? '',
-          answer: row['answer'] ?? '',
-          genre: row['genre'] ?? '',
-          difficulty: parseInt(row['difficulty'] ?? '1') || 1,
-          note: row['note'] ?? '',
+          body: row['問題文'] ?? row['question'] ?? row['body'] ?? '',
+          answer: row['解答'] ?? row['answer'] ?? '',
+          genre: row['ジャンル'] ?? row['genre'] ?? '',
+          difficulty: parseInt(row['難易度'] ?? row['difficulty'] ?? '1') || 1,
+          note: row['備考'] ?? row['note'] ?? '',
           used: false,
         }))
         setQuestions(prev => [...prev, ...imported])
@@ -84,12 +84,13 @@ export default function QuestionsClient({ tournament, initialQuestions }: Props)
   }
 
   const exportCSV = () => {
-    const rows = questions.map(q => ({
-      question: q.body,
-      answer: q.answer,
-      genre: q.genre ?? '',
-      difficulty: q.difficulty ?? 1,
-      note: q.note ?? '',
+    const rows = questions.map((q, i) => ({
+      '問題番号': i + 1,
+      '問題文': q.body,
+      '解答': q.answer,
+      'ジャンル': q.genre ?? '',
+      '難易度': q.difficulty ?? 1,
+      '備考': q.note ?? '',
     }))
     const csv = Papa.unparse(rows)
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -169,7 +170,7 @@ export default function QuestionsClient({ tournament, initialQuestions }: Props)
           CSVフォーマット (クリックで展開)
         </summary>
         <div className="px-4 pb-3 text-xs text-zinc-500 font-mono">
-          question,answer,genre,difficulty,note<br />
+          問題番号,問題文,解答,ジャンル,難易度,備考<br />
           日本の首都は？,東京,地理,1,<br />
           初代内閣総理大臣は？,伊藤博文,歴史,2,難問
         </div>
