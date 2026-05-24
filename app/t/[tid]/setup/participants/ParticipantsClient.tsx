@@ -9,6 +9,7 @@ import Papa from 'papaparse'
 interface Participant {
   id: string; tournament_id: string; team_id: string | null
   name: string; ruby: string | null; status: string
+  nickname: string | null; affiliation: string | null; grade: string | null; paper_rank: number | null
 }
 interface Team { id: string; tournament_id: string; name: string }
 interface Props {
@@ -32,6 +33,7 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
       id: `new-${Date.now()}`,
       tournament_id: tournament.id,
       team_id: null, name: '', ruby: '', status: 'active',
+      nickname: null, affiliation: null, grade: null, paper_rank: null,
     }])
   }
 
@@ -59,6 +61,10 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
           name: row['name'] ?? row['名前'] ?? '',
           ruby: row['ruby'] ?? row['読み'] ?? '',
           status: 'active',
+          nickname: row['nickname'] ?? row['二つ名'] ?? null,
+          affiliation: row['affiliation'] ?? row['所属'] ?? null,
+          grade: row['grade'] ?? row['学年'] ?? null,
+          paper_rank: row['paper_rank'] ? Number(row['paper_rank']) : null,
         }))
         setParticipants(prev => [...prev, ...imported])
         setMsg(`${imported.length} 名インポートしました`)
@@ -70,6 +76,8 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
   const exportCSV = () => {
     const rows = participants.map(p => ({
       name: p.name, ruby: p.ruby ?? '',
+      nickname: p.nickname ?? '', affiliation: p.affiliation ?? '', grade: p.grade ?? '',
+      paper_rank: p.paper_rank ?? '',
       team: teams.find(t => t.id === p.team_id)?.name ?? '',
       status: p.status,
     }))
@@ -90,6 +98,10 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
         team_id: p.team_id || null,
         name: p.name,
         ruby: p.ruby || null,
+        nickname: p.nickname || null,
+        affiliation: p.affiliation || null,
+        grade: p.grade || null,
+        paper_rank: p.paper_rank ?? null,
         status: p.status,
       }))
       const { data, error } = await supabase.from('participants').insert(rows).select()
@@ -182,6 +194,10 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
               <th className="px-3 py-2 text-left text-zinc-400 w-10">#</th>
               <th className="px-3 py-2 text-left text-zinc-400">名前</th>
               <th className="px-3 py-2 text-left text-zinc-400 w-36">読み (ruby)</th>
+              <th className="px-3 py-2 text-left text-zinc-400 w-28">二つ名</th>
+              <th className="px-3 py-2 text-left text-zinc-400 w-28">所属</th>
+              <th className="px-3 py-2 text-left text-zinc-400 w-20">学年</th>
+              <th className="px-3 py-2 text-center text-zinc-400 w-16">P順位</th>
               {isTeamMode && <th className="px-3 py-2 text-left text-zinc-400 w-32">チーム</th>}
               <th className="px-3 py-2 text-center text-zinc-400 w-20">状態</th>
               <th className="px-3 py-2 w-10"></th>
@@ -190,7 +206,7 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
           <tbody>
             {participants.length === 0 && (
               <tr>
-                <td colSpan={isTeamMode ? 6 : 5} className="px-4 py-8 text-center text-zinc-500">
+                <td colSpan={isTeamMode ? 10 : 9} className="px-4 py-8 text-center text-zinc-500">
                   参加者がいません
                 </td>
               </tr>
@@ -205,6 +221,22 @@ export default function ParticipantsClient({ tournament, initialParticipants, in
                 <td className="px-3 py-1.5">
                   <input value={p.ruby ?? ''} onChange={e => update(p.id, 'ruby', e.target.value)}
                     placeholder="よみ" className="w-full bg-transparent text-zinc-400 placeholder-zinc-600 focus:outline-none focus:bg-zinc-800/50 rounded px-1 py-0.5" />
+                </td>
+                <td className="px-3 py-1.5">
+                  <input value={p.nickname ?? ''} onChange={e => update(p.id, 'nickname', e.target.value || null)}
+                    placeholder="—" className="w-full bg-transparent text-yellow-400 placeholder-zinc-600 focus:outline-none focus:bg-zinc-800/50 rounded px-1 py-0.5" />
+                </td>
+                <td className="px-3 py-1.5">
+                  <input value={p.affiliation ?? ''} onChange={e => update(p.id, 'affiliation', e.target.value || null)}
+                    placeholder="—" className="w-full bg-transparent text-zinc-300 placeholder-zinc-600 focus:outline-none focus:bg-zinc-800/50 rounded px-1 py-0.5" />
+                </td>
+                <td className="px-3 py-1.5">
+                  <input value={p.grade ?? ''} onChange={e => update(p.id, 'grade', e.target.value || null)}
+                    placeholder="—" className="w-full bg-transparent text-zinc-300 placeholder-zinc-600 focus:outline-none focus:bg-zinc-800/50 rounded px-1 py-0.5" />
+                </td>
+                <td className="px-3 py-1.5 text-center">
+                  <input type="number" value={p.paper_rank ?? ''} onChange={e => update(p.id, 'paper_rank', e.target.value ? Number(e.target.value) : null)}
+                    placeholder="—" className="w-12 bg-transparent text-zinc-300 placeholder-zinc-600 focus:outline-none focus:bg-zinc-800/50 rounded px-1 py-0.5 text-center" />
                 </td>
                 {isTeamMode && (
                   <td className="px-3 py-1.5">
