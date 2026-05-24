@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Users, Layers, Trophy, Settings, BookOpen, BarChart2 } from 'lucide-react'
+import { ArrowLeft, Users, Layers, Trophy, Settings, BookOpen, BarChart2, Monitor } from 'lucide-react'
 
 interface Props {
   children: React.ReactNode
