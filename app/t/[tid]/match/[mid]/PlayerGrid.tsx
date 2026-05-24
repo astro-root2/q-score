@@ -10,31 +10,58 @@ interface Props {
   onSelect: (id: string) => void
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  active:    'border-zinc-700 bg-zinc-900 hover:border-zinc-500 cursor-pointer',
-  winner:    'border-emerald-600 bg-emerald-900/20 opacity-80',
-  eliminated:'border-red-900 bg-red-900/10 opacity-50',
-  resting:   'border-yellow-700 bg-yellow-900/10',
-  withdrawn: 'border-zinc-800 bg-zinc-900/50 opacity-40',
-}
-
 export default function PlayerGrid({ ruleId, onSelect }: Props) {
   const { matchState, selectedPlayerId } = useMatchStore()
   const rule = RuleRegistry.find(ruleId)
 
   if (!matchState || !rule) return null
 
-  const active = matchState.players.filter(p => p.status === 'active')
-  const others = matchState.players.filter(p => p.status !== 'active')
+  const active     = matchState.players.filter(p => p.status === 'active')
+  const resting    = matchState.players.filter(p => p.status === 'resting')
+  const winners    = matchState.players.filter(p => p.status === 'winner')
+  const eliminated = matchState.players.filter(p => p.status === 'eliminated')
+
+  const cols =
+    active.length <= 4 ? 2 :
+    active.length <= 9 ? 3 : 4
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-        {active.map(p => <PlayerCard key={p.id} player={p} rule={rule} selected={selectedPlayerId === p.id} onSelect={onSelect} />)}
+    <div className="space-y-4">
+      <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        {active.map(p => (
+          <PlayerCard
+            key={p.id}
+            player={p}
+            rule={rule}
+            selected={selectedPlayerId === p.id}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
-      {others.length > 0 && (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-1.5 opacity-60">
-          {others.map(p => <PlayerCard key={p.id} player={p} rule={rule} selected={false} onSelect={() => {}} compact />)}
+
+      {resting.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs text-zinc-600 font-semibold uppercase tracking-wider px-1">休み</div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {resting.map(p => (
+              <PlayerCard key={p.id} player={p} rule={rule} selected={false} onSelect={() => {}} compact />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(winners.length > 0 || eliminated.length > 0) && (
+        <div className="flex flex-wrap gap-2 pt-1 border-t border-zinc-800">
+          {winners.map(p => (
+            <span key={p.id} className="text-xs text-emerald-500 bg-emerald-950/50 border border-emerald-800/50 px-2.5 py-1 rounded-full">
+              ✓ {p.name}
+            </span>
+          ))}
+          {eliminated.map(p => (
+            <span key={p.id} className="text-xs text-zinc-600 line-through px-2.5 py-1">
+              {p.name}
+            </span>
+          ))}
         </div>
       )}
     </div>
@@ -50,30 +77,77 @@ function PlayerCard({ player, rule, selected, onSelect, compact }: {
 }) {
   if (!rule) return null
   const display = rule.getScoreDisplay(player)
-  const style = STATUS_STYLE[player.status] ?? STATUS_STYLE.active
+  const isSelectable = player.status === 'active'
+
+  const towerPct = display.towerMax && display.towerMax > 0
+    ? Math.min((display.towerValue ?? 0) / display.towerMax * 100, 100) : 0
+
+  if (compact) {
+    return (
+      <div className={cn(
+        'rounded-xl border px-2 py-2 transition-all',
+        player.status === 'resting' ? 'border-yellow-800/60 bg-yellow-950/20' : 'border-zinc-800 bg-zinc-900/60 opacity-60',
+      )}>
+        <div className="text-xs text-white font-semibold truncate">{player.name}</div>
+        <div className="text-xs font-bold text-zinc-300">{display.primary}</div>
+        {player.status === 'resting' && player.restRemaining > 0 && (
+          <div className="text-xs text-yellow-500">休{player.restRemaining}</div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
-      onClick={() => player.status === 'active' && onSelect(player.id)}
+      onClick={() => isSelectable && onSelect(player.id)}
       className={cn(
-        'rounded-xl border-2 transition-all select-none',
-        compact ? 'px-2 py-1.5' : 'px-3 py-3',
-        style,
-        selected && 'border-blue-400 bg-blue-900/20 ring-2 ring-blue-400/30',
-        player.lastAnswered === 'correct' && 'ring-2 ring-emerald-400/50',
-        player.lastAnswered === 'wrong' && 'ring-2 ring-red-400/50',
+        'relative rounded-2xl border-2 overflow-hidden transition-all select-none',
+        isSelectable ? 'cursor-pointer' : 'cursor-default',
+        !selected && 'border-zinc-700 bg-zinc-900 hover:border-zinc-500',
+        selected && 'border-blue-400 bg-blue-950/30 shadow-lg shadow-blue-900/30 scale-[1.02]',
+        !selected && player.lastAnswered === 'correct' && 'border-emerald-500/60',
+        !selected && player.lastAnswered === 'wrong' && 'border-red-500/40',
       )}>
-      <div className={cn('font-semibold text-white truncate', compact ? 'text-xs' : 'text-sm')}>
-        {player.name}
+      <div className="px-3 pt-3 pb-1">
+        <div className={cn('font-bold truncate leading-tight text-sm', selected ? 'text-blue-200' : 'text-white')}>
+          {player.name}
+        </div>
+        {player.affiliation && (
+          <div className="text-zinc-500 text-xs truncate">{player.affiliation}</div>
+        )}
       </div>
-      {!compact && (
-        <>
-          <div className="text-2xl font-black text-white mt-1">{display.primary}</div>
-          <div className="text-xs text-zinc-400">{display.secondary}</div>
-          {display.detail && <div className="text-xs text-yellow-400 mt-0.5">{display.detail}</div>}
-        </>
+
+      <div className="relative mx-3 mb-3 h-16 rounded-xl overflow-hidden bg-zinc-800">
+        {towerPct > 0 && (
+          <div
+            className={cn('absolute bottom-0 inset-x-0 transition-all duration-500', selected ? 'bg-blue-700' : 'bg-zinc-600')}
+            style={{ height: `${towerPct}%` }}
+          />
+        )}
+        <div className="relative z-10 h-full flex items-center justify-center gap-2">
+          <span className={cn(
+            'font-black tabular-nums text-3xl leading-none',
+            selected ? 'text-blue-200' : 'text-white',
+            player.lastAnswered === 'correct' && 'text-emerald-300',
+            player.lastAnswered === 'wrong' && 'text-red-300',
+          )}>
+            {display.primary}
+          </span>
+          {display.detail && <span className="text-yellow-400 text-xs">{display.detail}</span>}
+        </div>
+      </div>
+
+      {(player.correct > 0 || player.wrong > 0) && (
+        <div className="flex justify-center gap-3 pb-2.5 text-xs">
+          {player.correct > 0 && <span className="text-emerald-400">{player.correct}○</span>}
+          {player.wrong > 0 && <span className="text-red-400">{player.wrong}✕</span>}
+          {display.secondary && <span className="text-zinc-500">{display.secondary}</span>}
+        </div>
       )}
-      {compact && <div className="text-xs font-bold text-zinc-300">{display.primary}</div>}
+
+      {selected && (
+        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+      )}
     </div>
   )
 }

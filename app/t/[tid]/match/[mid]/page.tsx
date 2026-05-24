@@ -43,10 +43,14 @@ export default async function MatchPage({ params }: Props) {
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
         <div className="text-center space-y-3">
           <p className="text-zinc-400">参加者が登録されていません</p>
+          <a href={`/t/${tid}/setup/participants`} className="text-blue-400 hover:text-blue-300 underline text-sm">
+            参加者を登録する
+          </a>
         </div>
       </div>
     )
   }
+
   const replayedState = events && events.length > 0
     ? GameEngine.replay(events as Parameters<typeof GameEngine.replay>[0], gameState)
     : gameState
@@ -58,6 +62,8 @@ export default async function MatchPage({ params }: Props) {
       initialState={replayedState}
       initialEvents={events ?? []}
       rule={{ id: rule.id, name: rule.name, paramDefs: rule.paramDefs }}
+      obsToken={match.obs_token}
+      displayToken={match.display_token}
     />
   )
 }
