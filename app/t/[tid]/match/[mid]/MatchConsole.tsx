@@ -28,7 +28,7 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
   const { setSelectedPlayer, matchState } = useMatchStore()
   const [tab, setTab] = useState<Tab>('play')
   const [localParams, setLocalParams] = useState<Record<string, number | string | boolean>>(
-    initialState.ruleParams ?? {}
+    initialState?.ruleParams ?? {}
   )
 
   const isActive = matchState?.status === 'active'
