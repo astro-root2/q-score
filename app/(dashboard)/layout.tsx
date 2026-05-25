@@ -14,27 +14,60 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect('/login')
   }
 
+  const displayName = user.user_metadata?.display_name ?? user.email ?? ''
+
   return (
-    <div className="min-h-screen bg-zinc-950">
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-1.5 text-xl font-black text-white">
-            <span className="text-brand-400">Q</span>Score<span className="text-brand-400">+</span>
+    <div style={{
+      minHeight: '100vh',
+      background: '#050814',
+      backgroundImage: `linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)`,
+      backgroundSize: '40px 40px',
+      fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",
+    }}>
+      <style>{`
+        .logout-btn:hover { color: #f1f5f9 !important; background: rgba(255,255,255,0.05) !important; }
+      `}</style>
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 40,
+        background: 'rgba(5,8,20,0.95)',
+        borderBottom: '1px solid rgba(0,229,255,0.15)',
+        boxShadow: '0 2px 20px rgba(0,229,255,0.08)',
+        backdropFilter: 'blur(12px)',
+      }}>
+        <div style={{
+          maxWidth: 1280, margin: '0 auto', padding: '0 16px',
+          height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'relative',
+        }}>
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: '#00e5ff', boxShadow: '0 0 10px #00e5ff' }} />
+          <Link href="/" style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            textDecoration: 'none', paddingLeft: 12,
+          }}>
+            <span style={{
+              fontWeight: 900, fontSize: 22, letterSpacing: '-0.02em',
+              color: '#00e5ff', textShadow: '0 0 20px #00e5ff80',
+            }}>Q</span>
+            <span style={{ fontWeight: 900, fontSize: 20, color: '#f1f5f9', letterSpacing: '-0.01em' }}>Score</span>
+            <span style={{ color: '#00e5ff', fontWeight: 900, fontSize: 18 }}>+</span>
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-zinc-400 hidden sm:block">
-              {user.user_metadata?.display_name ?? user.email}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12, color: '#334155' }}>{displayName}</span>
             <form action={handleSignOut}>
-              <button type="submit"
-                className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-zinc-800">
+              <button type="submit" className="logout-btn" style={{
+                fontSize: 12, color: '#475569', background: 'transparent', border: 'none',
+                cursor: 'pointer', padding: '6px 12px', fontFamily: 'inherit',
+                transition: 'all 0.15s',
+              }}>
                 ログアウト
               </button>
             </form>
           </div>
         </div>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 16px' }}>
+        {children}
+      </main>
     </div>
   )
 }
