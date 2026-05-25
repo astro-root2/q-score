@@ -18,42 +18,117 @@ export default async function TournamentLayout({ children, params }: Props) {
     .from('tournaments').select('*').eq('id', tid).single()
   if (!tournament) notFound()
 
+  const accent = tournament.theme_color ?? '#00e5ff'
+
   const navItems = [
-    { href: `/t/${tid}`, label: 'ダッシュボード', icon: Trophy },
-    { href: `/t/${tid}/matches`, label: '試合', icon: Monitor },
-    { href: `/t/${tid}/setup/participants`, label: '参加者', icon: Users },
-    { href: `/t/${tid}/paper`, label: 'ペーパー', icon: BookOpen },
-    { href: `/t/${tid}/setup/rounds`, label: 'ラウンド', icon: Layers },
-    { href: `/t/${tid}/questions`, label: '問題', icon: BookOpen },
-    { href: `/t/${tid}/results`, label: '結果', icon: BarChart2 },
-    { href: `/t/${tid}/setup`, label: '設定', icon: Settings },
+    { href: `/t/${tid}`,                    label: 'ダッシュボード', icon: Trophy },
+    { href: `/t/${tid}/matches`,            label: '試合',         icon: Monitor },
+    { href: `/t/${tid}/setup/participants`, label: '参加者',       icon: Users },
+    { href: `/t/${tid}/paper`,              label: 'ペーパー',     icon: BookOpen },
+    { href: `/t/${tid}/setup/rounds`,       label: 'ラウンド',     icon: Layers },
+    { href: `/t/${tid}/questions`,          label: '問題',         icon: BookOpen },
+    { href: `/t/${tid}/results`,            label: '結果',         icon: BarChart2 },
+    { href: `/t/${tid}/setup`,              label: '設定',         icon: Settings },
   ]
 
   return (
-    <div className="min-h-screen bg-zinc-950">
-      <header className="border-b border-zinc-800 bg-zinc-900/50 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center gap-4">
-          <Link href="/" className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
-            <ArrowLeft size={18} />
+    <div style={{
+      minHeight: '100vh',
+      background: '#050814',
+      backgroundImage: `linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)`,
+      backgroundSize: '40px 40px',
+      fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",
+    }}>
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 40,
+        background: 'rgba(5,8,20,0.95)',
+        borderBottom: `1px solid ${accent}40`,
+        boxShadow: `0 2px 20px ${accent}20`,
+        backdropFilter: 'blur(12px)',
+      }}>
+        {/* トップバー */}
+        <div style={{
+          maxWidth: 1280, margin: '0 auto', padding: '0 16px',
+          height: 52, display: 'flex', alignItems: 'center', gap: 12,
+          position: 'relative',
+        }}>
+          {/* 左アクセントライン */}
+          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent, boxShadow: `0 0 10px ${accent}` }} />
+
+          <Link href="/" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 30, height: 30,
+            border: `1px solid ${accent}40`,
+            color: '#64748b',
+            textDecoration: 'none',
+            transition: 'all 0.2s',
+            clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
+          }}>
+            <ArrowLeft size={16} />
           </Link>
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: tournament.theme_color }} />
-            <span className="font-bold text-white truncate">{tournament.name}</span>
-            <span className="text-xs text-zinc-500 shrink-0 hidden sm:block">
-              {tournament.status === 'active' ? '● 開催中' : ''}
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            {/* テーマカラードット → アクセントバー */}
+            <div style={{
+              width: 4, height: 24, background: accent,
+              boxShadow: `0 0 8px ${accent}`,
+              flexShrink: 0,
+            }} />
+            <span style={{ fontWeight: 900, color: '#f1f5f9', fontSize: 16, letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {tournament.name}
             </span>
+            {tournament.status === 'active' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 4,
+                fontSize: 10, fontWeight: 700, color: '#10b981',
+                padding: '2px 8px',
+                border: '1px solid rgba(16,185,129,0.3)',
+                background: 'rgba(16,185,129,0.08)',
+                clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
+                letterSpacing: '0.1em',
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981', display: 'inline-block' }} />
+                LIVE
+              </div>
+            )}
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 flex gap-1 pb-0 overflow-x-auto">
+
+        {/* ナビゲーション */}
+        <nav style={{
+          maxWidth: 1280, margin: '0 auto', padding: '0 16px',
+          display: 'flex', gap: 2, overflowX: 'auto',
+        }}>
           {navItems.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm text-zinc-400 hover:text-white border-b-2 border-transparent hover:border-zinc-600 transition-colors whitespace-nowrap">
-              <Icon size={14} />{label}
+            <Link key={href} href={href} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px',
+              fontSize: 12, fontWeight: 600,
+              color: '#475569',
+              textDecoration: 'none',
+              borderBottom: '2px solid transparent',
+              whiteSpace: 'nowrap',
+              transition: 'all 0.15s',
+              letterSpacing: '0.05em',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.color = '#f1f5f9'
+              ;(e.currentTarget as HTMLElement).style.borderBottomColor = accent
+            }}
+            onMouseLeave={e => {
+              ;(e.currentTarget as HTMLElement).style.color = '#475569'
+              ;(e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'
+            }}>
+              <Icon size={13} />
+              {label}
             </Link>
           ))}
-        </div>
+        </nav>
       </header>
-      <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 16px' }}>
+        {children}
+      </main>
     </div>
   )
 }
