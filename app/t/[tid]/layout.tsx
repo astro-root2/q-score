@@ -39,6 +39,43 @@ export default async function TournamentLayout({ children, params }: Props) {
       backgroundSize: '40px 40px',
       fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",
     }}>
+      <style>{`
+        .nav-link {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 14px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #475569;
+          text-decoration: none;
+          border-bottom: 2px solid transparent;
+          white-space: nowrap;
+          transition: color 0.15s, border-color 0.15s;
+          letter-spacing: 0.05em;
+        }
+        .nav-link:hover {
+          color: #f1f5f9;
+          border-bottom-color: ${accent};
+        }
+        .back-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 30px;
+          height: 30px;
+          border: 1px solid ${accent}40;
+          color: #64748b;
+          text-decoration: none;
+          transition: color 0.15s, border-color 0.15s;
+          clip-path: polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%);
+        }
+        .back-btn:hover {
+          color: #f1f5f9;
+          border-color: ${accent}80;
+        }
+      `}</style>
+
       <header style={{
         position: 'sticky', top: 0, zIndex: 40,
         background: 'rgba(5,8,20,0.95)',
@@ -46,34 +83,19 @@ export default async function TournamentLayout({ children, params }: Props) {
         boxShadow: `0 2px 20px ${accent}20`,
         backdropFilter: 'blur(12px)',
       }}>
-        {/* トップバー */}
         <div style={{
           maxWidth: 1280, margin: '0 auto', padding: '0 16px',
           height: 52, display: 'flex', alignItems: 'center', gap: 12,
           position: 'relative',
         }}>
-          {/* 左アクセントライン */}
           <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: accent, boxShadow: `0 0 10px ${accent}` }} />
 
-          <Link href="/" style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 30, height: 30,
-            border: `1px solid ${accent}40`,
-            color: '#64748b',
-            textDecoration: 'none',
-            transition: 'all 0.2s',
-            clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
-          }}>
+          <Link href="/" className="back-btn">
             <ArrowLeft size={16} />
           </Link>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            {/* テーマカラードット → アクセントバー */}
-            <div style={{
-              width: 4, height: 24, background: accent,
-              boxShadow: `0 0 8px ${accent}`,
-              flexShrink: 0,
-            }} />
+            <div style={{ width: 4, height: 24, background: accent, boxShadow: `0 0 8px ${accent}`, flexShrink: 0 }} />
             <span style={{ fontWeight: 900, color: '#f1f5f9', fontSize: 16, letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {tournament.name}
             </span>
@@ -94,31 +116,9 @@ export default async function TournamentLayout({ children, params }: Props) {
           </div>
         </div>
 
-        {/* ナビゲーション */}
-        <nav style={{
-          maxWidth: 1280, margin: '0 auto', padding: '0 16px',
-          display: 'flex', gap: 2, overflowX: 'auto',
-        }}>
+        <nav style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px', display: 'flex', gap: 2, overflowX: 'auto' }}>
           {navItems.map(({ href, label, icon: Icon }) => (
-            <Link key={href} href={href} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px',
-              fontSize: 12, fontWeight: 600,
-              color: '#475569',
-              textDecoration: 'none',
-              borderBottom: '2px solid transparent',
-              whiteSpace: 'nowrap',
-              transition: 'all 0.15s',
-              letterSpacing: '0.05em',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.color = '#f1f5f9'
-              ;(e.currentTarget as HTMLElement).style.borderBottomColor = accent
-            }}
-            onMouseLeave={e => {
-              ;(e.currentTarget as HTMLElement).style.color = '#475569'
-              ;(e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'
-            }}>
+            <Link key={href} href={href} className="nav-link">
               <Icon size={13} />
               {label}
             </Link>
