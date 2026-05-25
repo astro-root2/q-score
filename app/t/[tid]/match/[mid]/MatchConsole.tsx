@@ -25,6 +25,7 @@ interface Props {
 
 export default function MatchConsole({ matchId, initialState, initialEvents, rule, tournamentId, obsToken, displayToken, staffToken, questions: initialQuestions }: Props) {
   const supabase = createClient()
+  const { dispatch, undo, applyAdvantage, setQuestionText } = useMatchEngine(matchId, initialState, initialEvents)
   const { setSelectedPlayer, matchState, selectedPlayerId, isConnected, error } = useMatchStore()
   const canUndo = useMatchStore(selectCanUndo)
 
