@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { RuleRegistry } from '@/lib/engine/rules'
 import type { MatchState } from '@/lib/engine/types'
+import { splitQuestionText } from '@/lib/utils/questionText'
 import { PlayerCard } from './components/PlayerCard'
 import { CompletedScreen } from './components/CompletedScreen'
 import type { MatchMeta } from './types'
@@ -115,7 +116,7 @@ export default function ScreenPage() {
 
       {state.questionText && (
         <div style={S.questionBar}>
-          {state.questionText.split('/').map((part, i, arr) => (
+          {splitQuestionText(state.questionText).map((part, i, arr) => (
             <span key={i}>{part}{i < arr.length - 1 && <span style={{ color: '#60a5fa', fontWeight: 900, margin: '0 6px', fontSize: 18 }}>/</span>}</span>
           ))}
         </div>

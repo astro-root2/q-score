@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/cn'
 import type { MatchState, PlayerState } from '@/lib/engine/types'
+import { splitQuestionText } from '@/lib/utils/questionText'
 import { Eye, Wifi, WifiOff } from 'lucide-react'
 import { RuleRegistry } from '@/lib/engine/rules'
 

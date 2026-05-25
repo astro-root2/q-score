@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { RuleRegistry } from '@/lib/engine/rules'
 import type { MatchState, PlayerState } from '@/lib/engine/types'
+import { splitQuestionText } from '@/lib/utils/questionText'
 
 export default function ObsPage() {
   const { token } = useParams<{ token: string }>()
@@ -105,7 +106,7 @@ export default function ObsPage() {
           color: '#cbd5e1',
           lineHeight: 1.5,
         }}>
-          {state.questionText.split('/').map((part, i, arr) => (
+          {splitQuestionText(state.questionText).map((part, i, arr) => (
             <span key={i}>
               {part}
               {i < arr.length - 1 && (

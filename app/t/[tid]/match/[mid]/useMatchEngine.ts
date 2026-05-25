@@ -27,8 +27,15 @@ export function useMatchEngine(matchId: string, initialState: MatchState, initia
         store.applyRemoteState(payload.state as MatchState)
       })
       .subscribe(status => store.setConnected(status === 'SUBSCRIBED'))
-
     return () => { supabase.removeChannel(channel) }
+  }, [matchId])
+
+  const broadcast = useCallback(async (newState: MatchState) => {
+    await supabase.from('matches').update({ game_state: newState, status: newState.status }).eq('id', matchId)
+    await supabase.channel(`match:${matchId}`).send({
+      type: 'broadcast', event: 'STATE_UPDATE', payload: { state: newState }
+    })
+    store.applyRemoteState(newState)
   }, [matchId])
 
   const dispatch = useCallback(async (
@@ -61,64 +68,42 @@ export function useMatchEngine(matchId: string, initialState: MatchState, initia
     const { data, error } = await supabase.from('game_events').insert(event).select().single()
     if (error) { store.setError(error.message); return }
 
-    const newState = GameEngine.applyEvent(state, {
+    const gameEvent = {
       ...data,
       eventType: data.event_type as EventType,
       actorId: data.actor_id,
       matchId: data.match_id,
       createdAt: data.created_at,
-    })
+    }
 
-    await supabase.from('matches').update({ game_state: newState, status: newState.status }).eq('id', matchId)
-
-    await supabase.channel(`match:${matchId}`).send({
-      type: 'broadcast', event: 'STATE_UPDATE', payload: { state: newState }
-    })
-
-    store.applyRemoteEvent({
-      ...data,
-      eventType: data.event_type as EventType,
-      actorId: data.actor_id,
-      matchId: data.match_id,
-      createdAt: data.created_at,
-    })
+    const newState = GameEngine.applyEvent(state, gameEvent)
+    await broadcast(newState)
+    store.applyRemoteEvent(gameEvent)
     store.setError(null)
-  }, [matchId])
+  }, [matchId, broadcast])
 
   const undo = useCallback(async () => {
     const { events, matchState } = useMatchStore.getState()
     const result = GameEngine.undo(events, matchState)
     if (!result) return
 
-    const lastUndone = events.find(e => !result.newEvents.find(ne => ne.id === e.id && !ne.undone) && !e.undone)
-    if (lastUndone) {
-      await supabase.from('game_events').update({ undone: true }).eq('id', lastUndone.id)
+    // 最後の有効イベントをundone=trueに
+    const activeEvents = events.filter(e => !e.undone)
+    const lastEvent = activeEvents[activeEvents.length - 1]
+    if (lastEvent) {
+      await supabase.from('game_events').update({ undone: true }).eq('id', lastEvent.id)
     }
-    await supabase.from('matches').update({ game_state: result.newState }).eq('id', matchId)
+
+    await broadcast(result.newState)
     store.initialize(result.newState, result.newEvents)
-  }, [matchId])
-
-  const slash = useCallback(async () => {
-    const state = useMatchStore.getState().matchState
-    if (!state) return
-    const newText = (state.questionText ?? "") + "/"
-    const newState = { ...state, questionText: newText }
-    await supabase.from("matches").update({ question_text: newText }).eq("id", matchId)
-    await supabase.channel(`match:${matchId}`).send({ type: "broadcast", event: "STATE_UPDATE", payload: { state: newState } })
-    store.applyRemoteState(newState)
-  }, [matchId])
-
+  }, [matchId, broadcast])
 
   const setQuestionText = useCallback(async (text: string) => {
     const state = useMatchStore.getState().matchState
     if (!state) return
     const newState = { ...state, questionText: text }
-    await supabase.from("matches").update({ game_state: newState }).eq("id", matchId)
-    await supabase.channel(`match:${matchId}`).send({
-      type: "broadcast", event: "STATE_UPDATE", payload: { state: newState }
-    })
-    store.applyRemoteState(newState)
-  }, [matchId])
+    await broadcast(newState)
+  }, [matchId, broadcast])
 
   const applyAdvantage = useCallback(async (
     adjustments: Record<string, { correct: number; wrong: number; points: number }>
@@ -130,20 +115,11 @@ export function useMatchEngine(matchId: string, initialState: MatchState, initia
       players: state.players.map(p => {
         const adj = adjustments[p.id]
         if (!adj) return p
-        return {
-          ...p,
-          correct: p.correct + (adj.correct ?? 0),
-          wrong: p.wrong + (adj.wrong ?? 0),
-          points: p.points + (adj.points ?? 0),
-        }
+        return { ...p, correct: p.correct + (adj.correct ?? 0), wrong: p.wrong + (adj.wrong ?? 0), points: p.points + (adj.points ?? 0) }
       }),
     }
-    await supabase.from("matches").update({ game_state: newState }).eq("id", matchId)
-    await supabase.channel(`match:${matchId}`).send({
-      type: "broadcast", event: "STATE_UPDATE", payload: { state: newState }
-    })
-    store.applyRemoteState(newState)
-  }, [matchId])
+    await broadcast(newState)
+  }, [matchId, broadcast])
 
-  return { dispatch, undo, slash, applyAdvantage, setQuestionText }
+  return { dispatch, undo, applyAdvantage, setQuestionText }
 }

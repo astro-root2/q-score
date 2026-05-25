@@ -25,7 +25,6 @@ interface Props {
 
 export default function MatchConsole({ matchId, initialState, initialEvents, rule, tournamentId, obsToken, displayToken, staffToken, questions: initialQuestions }: Props) {
   const supabase = createClient()
-  const { dispatch, undo, slash, applyAdvantage, setQuestionText } = useMatchEngine(matchId, initialState, initialEvents)
   const { setSelectedPlayer, matchState, selectedPlayerId, isConnected, error } = useMatchStore()
   const canUndo = useMatchStore(selectCanUndo)
 
@@ -81,7 +80,6 @@ export default function MatchConsole({ matchId, initialState, initialEvents, rul
         currentQuestion={currentQuestion}
         savedText={matchState?.questionText ?? null}
         onSave={setQuestionText}
-        onSlash={slash}
         unusedCount={unusedQuestions.length}
       />
 
