@@ -7,8 +7,8 @@ import { RuleRegistry } from '@/lib/engine/rules'
 import type { MatchState } from '@/lib/engine/types'
 import { PlayerCard } from './components/PlayerCard'
 import { CompletedScreen } from './components/CompletedScreen'
-import type { MatchMeta } from './types'
-import { buildThemeVars, DEFAULT_ACCENT } from '@/lib/utils/theme'
+import type { MatchMeta, RankColorTier } from './types'
+import { DEFAULT_RANK_TIERS } from './types'
 import { splitQuestionText } from '@/lib/utils/questionText'
 
 export default function ScreenPage() {
@@ -16,7 +16,8 @@ export default function ScreenPage() {
   const supabase  = createClient()
   const [state, setState]     = useState<MatchState | null>(null)
   const [meta, setMeta]       = useState<MatchMeta | null>(null)
-  const [accent, setAccent]   = useState(DEFAULT_ACCENT)
+  const [tiers, setTiers]     = useState<RankColorTier[]>(DEFAULT_RANK_TIERS)
+  const [accent, setAccent]   = useState('#00e5ff')
   const [matchId, setMatchId] = useState<string | null>(null)
   const [flash, setFlash]     = useState<{ id: string; type: 'correct' | 'wrong' } | null>(null)
   const prevState = useRef<MatchState | null>(null)
@@ -26,12 +27,15 @@ export default function ScreenPage() {
     ;(async () => {
       const { data: match } = await supabase
         .from('matches')
-        .select('id, name, game_state, rounds(name, rule_id, tournament_id, tournaments(name, theme_color))')
+        .select('id, name, game_state, rounds(name, rule_id, tournament_id, tournaments(name, theme_color, settings))')
         .eq('display_token', token).single()
       if (!match) return
+
       const round      = (match as any).rounds ?? {}
       const tournament = round.tournaments ?? {}
       const rule       = RuleRegistry.find(round.rule_id ?? '')
+      const settings   = tournament.settings ?? {}
+
       let totalQuestions: number | null = null
       if (round.tournament_id) {
         const { count } = await supabase
@@ -39,15 +43,19 @@ export default function ScreenPage() {
           .eq('tournament_id', round.tournament_id)
         totalQuestions = count
       }
+
       setMatchId(match.id)
       setState(match.game_state as MatchState)
       prevState.current = match.game_state as MatchState
-      setAccent(tournament.theme_color ?? DEFAULT_ACCENT)
+      setAccent(tournament.theme_color ?? '#00e5ff')
+      if (Array.isArray(settings.rankColorTiers) && settings.rankColorTiers.length > 0) {
+        setTiers(settings.rankColorTiers)
+      }
       setMeta({
-        matchName: (match.game_state as MatchState)?.matchName ?? match.name ?? '',
+        matchName:      (match.game_state as MatchState)?.matchName ?? match.name ?? '',
         tournamentName: tournament.name ?? '',
-        roundName: round.name ?? '',
-        ruleName: rule?.name ?? round.rule_id ?? '',
+        roundName:      round.name ?? '',
+        ruleName:       rule?.name ?? round.rule_id ?? '',
         totalQuestions,
       })
     })()
@@ -73,11 +81,9 @@ export default function ScreenPage() {
     return () => { supabase.removeChannel(ch) }
   }, [matchId])
 
-  const themeVars = buildThemeVars(accent)
-
   if (!state) return (
-    <div style={{ ...root, ...themeVars, alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ color: 'var(--accent)', opacity: 0.4, letterSpacing: '0.5em', fontSize: 14 }}>LOADING...</div>
+    <div style={{ ...ROOT, alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ color: accent, opacity: 0.4, letterSpacing: '0.5em', fontSize: 14 }}>LOADING...</span>
     </div>
   )
 
@@ -89,151 +95,126 @@ export default function ScreenPage() {
   const eliminated = state.players.filter(p => p.status === 'eliminated')
   const resting    = state.players.filter(p => p.status === 'resting')
   const qParts     = state.questionText ? splitQuestionText(state.questionText) : null
+  const ruleSummary = rule?.getRuleSummary(state.ruleParams) ?? meta?.ruleName ?? ''
 
   return (
-    <div style={{ ...root, ...themeVars }}>
-
-      {/* フラッシュ */}
+    <div style={ROOT}>
       {flash && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'none',
-          background: flash.type === 'correct' ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)',
+          background: flash.type === 'correct' ? 'rgba(0,255,136,0.06)' : 'rgba(255,34,68,0.06)',
         }} />
       )}
 
-      {/* ── ヘッダー ── */}
-      <div style={{
-        display: 'flex', alignItems: 'stretch',
-        borderBottom: '2px solid var(--accent-border)',
-        boxShadow: '0 2px 20px var(--accent-glow)',
-        flexShrink: 0,
-        background: 'rgba(5,8,20,0.98)',
-      }}>
-        {/* アクセントバー */}
-        <div style={{ width: 4, background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)', flexShrink: 0 }} />
+      {/* ヘッダー */}
+      <div style={HDR}>
+        {/* 左: 問題・答え */}
+        <div style={{ flex: 1, minWidth: 0, padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ fontSize: 15, color: '#f1f5f9', lineHeight: 1.6, letterSpacing: '0.02em' }}>
+            {qParts
+              ? qParts.map((part, i) => (
+                  <span key={i}>
+                    {part}
+                    {i < qParts.length - 1 && (
+                      <span style={{ color: accent, margin: '0 4px', fontWeight: 900 }}>/</span>
+                    )}
+                  </span>
+                ))
+              : <span style={{ color: '#333' }}>ここに問題が表示されます。</span>
+            }
+          </div>
+          <div style={{ fontSize: 17, color: '#f59e0b', fontWeight: 700, lineHeight: 1.3, minHeight: 24 }}>
+            ここに答えが表示されます。
+          </div>
+        </div>
 
-        {/* 左: 大会名・試合名 */}
-        <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, flex: 1, minWidth: 0 }}>
-          {meta?.tournamentName && (
-            <div style={{ color: 'var(--accent)', fontSize: 10, letterSpacing: '0.2em', opacity: 0.8 }}>
-              {meta.tournamentName}
-            </div>
-          )}
+        {/* 右: ラウンド・ルール・人数 */}
+        <div style={{
+          padding: '12px 20px',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'flex-end', justifyContent: 'space-between',
+          gap: 6, flexShrink: 0,
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ color: '#f1f5f9', fontWeight: 900, fontSize: 18 }}>{meta?.matchName ?? state.matchName}</span>
-            {meta?.roundName && <span style={{ color: '#334155', fontSize: 12 }}>{meta.roundName}</span>}
-            {meta?.ruleName && (
-              <span style={{
-                color: 'var(--accent)', fontSize: 10, fontWeight: 700,
-                border: '1px solid var(--accent-border)', padding: '1px 8px',
-                background: 'var(--accent-dim)',
-                clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
-              }}>{meta.ruleName}</span>
+            {state.questionNumber > 0 && (
+              <span style={{ color: '#fff', fontWeight: 900, fontSize: 15 }}>
+                Q{state.questionNumber}
+              </span>
+            )}
+            {meta?.roundName && (
+              <span style={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>
+                {meta.roundName}
+              </span>
+            )}
+            {ruleSummary && (
+              <span style={{ color: accent, fontWeight: 900, fontSize: 15 }}>
+                {ruleSummary}
+              </span>
             )}
           </div>
-        </div>
-
-        {/* 右: Q番号・人数 */}
-        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          {state.status === 'paused' && (
-            <span style={{ color: '#fbbf24', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em' }}>⏸ PAUSE</span>
-          )}
-          {state.questionNumber > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'baseline', gap: 2,
-              background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
-              padding: '4px 14px',
-              clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)',
-            }}>
-              <span style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 700 }}>Q</span>
-              <span style={{ color: '#f1f5f9', fontSize: 28, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                {state.questionNumber}
-              </span>
-              {meta?.totalQuestions && (
-                <span style={{ color: '#334155', fontSize: 11 }}>/{meta.totalQuestions}</span>
-              )}
-            </div>
-          )}
-          <div style={{
-            display: 'flex', alignItems: 'baseline', gap: 2,
-            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
-            padding: '4px 12px',
-            clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)',
-          }}>
-            <span style={{ color: '#334155', fontSize: 11 }}>残</span>
-            <span style={{ color: '#64748b', fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{active.length}</span>
-            <span style={{ color: '#1e293b', fontSize: 11 }}>/{state.players.length}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ color: '#fff', fontWeight: 900, fontSize: 28, fontVariantNumeric: 'tabular-nums' }}>
+              {state.players.length}
+            </span>
+            <span style={{ color: accent, fontWeight: 900, fontSize: 20 }}>›››</span>
+            <span style={{ color: '#fff', fontWeight: 900, fontSize: 28, fontVariantNumeric: 'tabular-nums' }}>
+              {active.length + winners.length}
+            </span>
           </div>
+          {state.status === 'paused' && (
+            <span style={{ color: '#fbbf24', fontSize: 11, fontWeight: 700 }}>⏸ PAUSE</span>
+          )}
         </div>
       </div>
 
-      {/* ── 問題文（常時表示） ── */}
-      <div style={{
-        padding: '10px 20px',
-        background: 'rgba(5,8,20,0.9)',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        flexShrink: 0,
-        minHeight: 48,
-        display: 'flex',
-        alignItems: 'center',
-      }}>
-        {qParts ? (
-          <p style={{ margin: 0, color: '#e2e8f0', fontSize: 15, lineHeight: 1.7, letterSpacing: '0.03em' }}>
-            {qParts.map((part, i) => (
-              <span key={i}>
-                {part}
-                {i < qParts.length - 1 && (
-                  <span style={{ color: 'var(--accent)', fontWeight: 900, margin: '0 6px', textShadow: '0 0 8px var(--accent)' }}>/</span>
-                )}
-              </span>
-            ))}
-          </p>
-        ) : (
-          <p style={{ margin: 0, color: '#1e293b', fontSize: 13, letterSpacing: '0.1em' }}>— 問題文未入力 —</p>
-        )}
-      </div>
-
-      {/* ── 勝ち抜け ── */}
+      {/* 勝ち抜け帯 */}
       {winners.length > 0 && (
         <div style={{
-          display: 'flex', gap: 8, flexWrap: 'wrap', padding: '6px 20px',
-          background: 'rgba(16,185,129,0.05)', borderBottom: '1px solid rgba(16,185,129,0.15)',
+          display: 'flex', gap: 8, flexWrap: 'wrap',
+          padding: '4px 16px',
+          background: 'rgba(16,185,129,0.08)',
+          borderBottom: '1px solid rgba(16,185,129,0.2)',
           flexShrink: 0,
         }}>
           {winners.map(p => (
-            <div key={p.id} style={{
-              color: '#10b981', fontSize: 12, fontWeight: 700,
-              border: '1px solid rgba(16,185,129,0.35)', padding: '2px 12px',
-              background: 'rgba(16,185,129,0.08)',
-              clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
-            }}>🏆 {p.name}</div>
+            <span key={p.id} style={{ color: '#10b981', fontSize: 12, fontWeight: 700 }}>
+              🏆 {p.name}
+            </span>
           ))}
         </div>
       )}
 
-      {/* ── プレイヤーグリッド ── */}
-      <div style={{ flex: 1, minHeight: 0, padding: '12px' }}>
+      {/* プレイヤーグリッド */}
+      <div style={{ flex: 1, minHeight: 0, padding: '6px 6px 0' }}>
         <div style={{
-          height: '100%', display: 'grid', gap: 8,
+          height: '100%',
+          display: 'grid',
+          gap: 5,
           gridTemplateColumns: `repeat(${active.length}, minmax(0, 1fr))`,
         }}>
           {active.map(p => (
-            <PlayerCard key={p.id} player={p} rule={rule} params={state.ruleParams}
-              flash={flash?.id === p.id ? flash.type : null} />
+            <PlayerCard
+              key={p.id}
+              player={p}
+              rule={rule}
+              params={state.ruleParams}
+              flash={flash?.id === p.id ? flash.type : null}
+              tiers={tiers}
+            />
           ))}
         </div>
       </div>
 
-      {/* ── 脱落・休み ── */}
+      {/* 脱落・休み */}
       {(eliminated.length > 0 || resting.length > 0) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 16px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '4px 16px', flexShrink: 0 }}>
           {eliminated.map(p => (
-            <span key={p.id} style={{ fontSize: 11, color: '#1e293b', textDecoration: 'line-through', padding: '1px 8px', border: '1px solid #1e293b' }}>
+            <span key={p.id} style={{ fontSize: 11, color: '#2a2a2a', textDecoration: 'line-through' }}>
               {p.name}
             </span>
           ))}
           {resting.map(p => (
-            <span key={p.id} style={{ fontSize: 11, color: '#92400e', padding: '1px 8px', border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)' }}>
+            <span key={p.id} style={{ fontSize: 11, color: '#92400e', border: '1px solid rgba(245,158,11,0.25)', padding: '1px 6px' }}>
               {p.name} 休{p.restRemaining}
             </span>
           ))}
@@ -243,16 +224,22 @@ export default function ScreenPage() {
   )
 }
 
-const root: React.CSSProperties = {
+const ROOT: React.CSSProperties = {
   minHeight: '100vh',
-  background: '#050814',
-  backgroundImage: `
-    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)
-  `,
-  backgroundSize: '40px 40px',
+  background: '#080808',
   color: '#f1f5f9',
-  display: 'flex', flexDirection: 'column',
+  display: 'flex',
+  flexDirection: 'column',
   fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",
-  userSelect: 'none', overflow: 'hidden',
+  userSelect: 'none',
+  overflow: 'hidden',
+}
+
+const HDR: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'stretch',
+  borderBottom: '2px solid #1a1a1a',
+  flexShrink: 0,
+  background: '#0a0a0a',
+  minHeight: 90,
 }

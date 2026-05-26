@@ -1,170 +1,194 @@
 import type { PlayerState } from '@/lib/engine/types'
 import { RuleRegistry } from '@/lib/engine/rules'
+import type { RankColorTier } from '../types'
+import { DEFAULT_RANK_TIERS } from '../types'
 
-// ポジション別カード背景色（参考画像の暗めカラー帯）
-const CARD_COLORS = [
-  { bg: 'hsl(0,   60%, 14%)', border: 'hsl(0,   70%, 35%)' },  // 深紅
-  { bg: 'hsl(220, 60%, 16%)', border: 'hsl(220, 70%, 40%)' },  // 深青
-  { bg: 'hsl(45,  55%, 14%)', border: 'hsl(45,  65%, 35%)' },  // 深黄
-  { bg: 'hsl(150, 50%, 12%)', border: 'hsl(150, 60%, 30%)' },  // 深緑
-  { bg: 'hsl(270, 55%, 15%)', border: 'hsl(270, 65%, 38%)' },  // 深紫
-  { bg: 'hsl(190, 55%, 13%)', border: 'hsl(190, 65%, 32%)' },  // 深シアン
-  { bg: 'hsl(30,  55%, 13%)', border: 'hsl(30,  65%, 33%)' },  // 深橙
-  { bg: 'hsl(330, 55%, 14%)', border: 'hsl(330, 65%, 36%)' },  // 深ピンク
-]
+function ordinal(n: number): string {
+  if (n % 100 >= 11 && n % 100 <= 13) return `${n}th`
+  const s: Record<number, string> = { 1: 'st', 2: 'nd', 3: 'rd' }
+  return `${n}${s[n % 10] ?? 'th'}`
+}
 
-export function PlayerCard({ player, rule, params, flash }: {
+function getTier(paperRank: number | null, position: number, tiers: RankColorTier[]) {
+  const sorted = [...tiers].sort((a, b) => a.maxRank - b.maxRank)
+  if (paperRank != null) {
+    return sorted.find(t => paperRank <= t.maxRank) ?? sorted[sorted.length - 1]
+  }
+  return sorted[Math.min(position - 1, sorted.length - 1)]
+}
+
+export function PlayerCard({ player, rule, params, flash, tiers }: {
   player: PlayerState
   rule: ReturnType<typeof RuleRegistry.find>
   params: Record<string, number | string | boolean>
   flash: 'correct' | 'wrong' | null
+  tiers?: RankColorTier[]
 }) {
-  const display    = rule?.getScoreDisplay(player, params)
-  const towerPct   = display?.towerMax && display.towerMax > 0
-    ? Math.min((display.towerValue ?? 0) / display.towerMax * 100, 100) : 0
+  const display  = rule?.getScoreDisplay(player, params)
+  const activeTiers = tiers && tiers.length > 0 ? tiers : DEFAULT_RANK_TIERS
+  const tier     = getTier(player.paperRank, player.position, activeTiers)
 
-  const colorIdx   = (player.position - 1) % CARD_COLORS.length
-  const { bg, border: cardBorder } = CARD_COLORS[colorIdx]
+  const isCorrect = flash === 'correct'
+  const isWrong   = flash === 'wrong'
 
-  const isCorrect  = flash === 'correct'
-  const isWrong    = flash === 'wrong'
+  const flashBar   = isCorrect ? '#00FF88' : isWrong ? '#FF2244' : null
+  const barColor   = flashBar ?? tier.bar
+  const boxBorder  = flashBar ?? tier.bar
+  const scoreColor = flashBar ?? tier.bar
+  const scoreGlow  = `0 0 14px ${boxBorder}80`
 
-  const flashBorder = isCorrect ? '#10b981' : isWrong ? '#ef4444' : null
-  const flashGlow   = isCorrect ? 'rgba(16,185,129,0.5)' : isWrong ? 'rgba(239,68,68,0.4)' : null
-  const scoreColor  = isCorrect ? '#10b981' : isWrong ? '#ef4444' : 'var(--accent)'
-  const scoreGlow   = isCorrect ? 'rgba(16,185,129,0.5)' : isWrong ? 'rgba(239,68,68,0.4)' : 'var(--accent-glow)'
+  const maxWrong = Math.max(
+    player.wrong,
+    Number(params?.lose ?? params?.elim_wrong ?? params?.maxWrong ?? 0)
+  )
+  const dots = maxWrong > 0
+    ? Array.from({ length: Math.min(maxWrong, 6) }, (_, i) => i < player.wrong)
+    : []
+
+  const rankLabel = player.paperRank
+    ? ordinal(player.paperRank)
+    : `#${player.position}`
 
   return (
     <div style={{
       position: 'relative',
-      display: 'flex', flexDirection: 'column',
+      display: 'flex',
+      flexDirection: 'column',
       height: '100%',
-      background: bg,
-      border: `2px solid ${flashBorder ?? cardBorder}`,
-      boxShadow: flashGlow
-        ? `0 0 28px ${flashGlow}, inset 0 0 30px rgba(0,0,0,0.4)`
-        : `inset 0 0 30px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.4)`,
+      background: tier.bg,
+      border: flashBar ? `2px solid ${flashBar}` : '2px solid transparent',
+      boxShadow: flash ? `0 0 28px ${flashBar}60` : 'none',
       transform: flash ? 'scale(1.03)' : 'scale(1)',
-      transition: 'all 0.2s ease',
-      overflow: 'hidden',
+      transition: 'all 0.15s ease',
     }}>
 
-      {/* タワーバー */}
+      {/* 順位ラベル */}
       <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        height: `${towerPct}%`,
-        background: `linear-gradient(to top, ${scoreColor}30, transparent)`,
-        borderTop: towerPct > 5 ? `1px solid ${scoreColor}50` : 'none',
-        transition: 'height 0.6s cubic-bezier(0.34,1.56,0.64,1)',
-        zIndex: 0,
-      }} />
-
-      {/* 上部アクセントライン */}
-      <div style={{
-        height: 3, flexShrink: 0,
-        background: flashBorder ?? 'var(--accent)',
-        boxShadow: `0 0 10px ${flashGlow ?? 'var(--accent)'}`,
-      }} />
-
-      {/* 順位表示 */}
-      <div style={{
-        padding: '6px 8px 0',
-        display: 'flex', justifyContent: 'center',
-        flexShrink: 0, zIndex: 1,
+        textAlign: 'center',
+        padding: '5px 0 2px',
+        color: barColor,
+        fontSize: 13,
+        fontWeight: 900,
+        letterSpacing: '0.05em',
+        lineHeight: 1,
+        textShadow: `0 0 8px ${barColor}80`,
       }}>
-        <span style={{
-          fontSize: 10, fontWeight: 700,
-          color: flashBorder ?? cardBorder,
-          letterSpacing: '0.1em',
-          textShadow: `0 0 8px ${flashBorder ?? cardBorder}`,
-        }}>
-          #{player.position}
-        </span>
+        {rankLabel}
       </div>
 
-      {/* 名前エリア（縦書き） */}
+      {/* カラーバー */}
       <div style={{
-        position: 'relative', zIndex: 1,
+        height: 4,
+        background: barColor,
+        boxShadow: `0 0 8px ${barColor}`,
+        flexShrink: 0,
+        transition: 'background 0.15s',
+      }} />
+
+      {/* 縦書き名前・所属 */}
+      <div style={{
         flex: 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: '8px 4px',
         gap: 2,
+        minHeight: 0,
       }}>
-        {player.affiliation && (
+        {(player.affiliation || player.grade) && (
           <div style={{
-            writingMode: 'vertical-rl', textOrientation: 'upright',
-            color: 'rgba(255,255,255,0.35)', fontSize: 9,
-            letterSpacing: 2,
-          }}>{player.affiliation}</div>
+            writingMode: 'vertical-rl',
+            textOrientation: 'upright',
+            color: 'rgba(255,255,255,0.4)',
+            fontSize: 10,
+            letterSpacing: 1,
+            lineHeight: 1.3,
+          }}>
+            {[player.affiliation, player.grade].filter(Boolean).join('')}
+          </div>
         )}
         <div style={{
-          writingMode: 'vertical-rl', textOrientation: 'upright',
-          color: flash ? '#ffffff' : '#f1f5f9',
-          fontSize: 22, fontWeight: 900,
+          writingMode: 'vertical-rl',
+          textOrientation: 'upright',
+          color: flash ? '#ffffff' : '#f0f0f0',
+          fontSize: 'clamp(16px, 2.2vw, 26px)',
+          fontWeight: 900,
           letterSpacing: 4,
+          lineHeight: 1,
           textShadow: flash
-            ? `0 0 20px ${scoreColor}, 0 2px 8px rgba(0,0,0,0.8)`
-            : '0 2px 12px rgba(0,0,0,0.8)',
-          transition: 'all 0.2s',
-        }}>{player.name}</div>
-        {player.nickname && (
-          <div style={{
-            writingMode: 'vertical-rl', textOrientation: 'upright',
-            color: 'rgba(255,255,255,0.3)', fontSize: 9,
-            letterSpacing: 2,
-          }}>{player.nickname}</div>
-        )}
+            ? `0 0 16px ${flashBar}`
+            : `0 0 6px ${barColor}40`,
+          transition: 'all 0.15s',
+        }}>
+          {player.name}
+        </div>
       </div>
 
       {/* スコアボックス */}
       <div style={{
-        position: 'relative', zIndex: 1,
-        margin: '0 8px 10px',
-        padding: '8px 6px',
-        background: 'rgba(0,0,0,0.7)',
-        border: `2px solid ${scoreColor}`,
-        boxShadow: `0 0 16px ${scoreGlow}, inset 0 0 16px rgba(0,0,0,0.6)`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        gap: 3, flexShrink: 0,
+        flexShrink: 0,
+        margin: '0 6px 4px',
+        border: `3px solid ${boxBorder}`,
+        boxShadow: scoreGlow,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '4px 2px',
+        background: 'rgba(0,0,0,0.65)',
+        transition: 'border-color 0.15s, box-shadow 0.15s',
       }}>
         <div style={{
-          fontSize: 54, fontWeight: 900, lineHeight: 1,
+          fontSize: 'clamp(22px, 3.2vw, 50px)',
+          fontWeight: 900,
           color: scoreColor,
-          textShadow: `0 0 24px ${scoreGlow}`,
+          lineHeight: 1,
           fontVariantNumeric: 'tabular-nums',
-          letterSpacing: '-2px',
-          transition: 'all 0.2s',
+          letterSpacing: '-1px',
+          textShadow: `0 0 16px ${scoreColor}80`,
+          transition: 'all 0.15s',
         }}>
           {display?.primary ?? '0'}
         </div>
-
         {display?.detail && (
           <div style={{ color: '#f59e0b', fontSize: 10, fontWeight: 700 }}>
             {display.detail}
           </div>
         )}
-
-        {(player.correct > 0 || player.wrong > 0) && (
-          <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-            {player.correct > 0 && (
-              <span style={{ color: '#10b981', fontWeight: 700 }}>{player.correct}○</span>
-            )}
-            {player.wrong > 0 && (
-              <span style={{ color: '#ef4444', fontWeight: 700 }}>
-                {'×'.repeat(Math.min(player.wrong, 5))}{player.wrong > 5 ? `(${player.wrong})` : ''}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* フラッシュ */}
+      {/* ×ドット */}
+      {dots.length > 0 && (
+        <div style={{
+          flexShrink: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 4,
+          padding: '2px 4px 5px',
+        }}>
+          {dots.map((filled, i) => (
+            <div key={i} style={{
+              width: 7,
+              height: 7,
+              borderRadius: '50%',
+              background: filled ? '#CC2200' : 'rgba(255,255,255,0.15)',
+              boxShadow: filled ? '0 0 5px #CC220080' : 'none',
+              transition: 'all 0.2s',
+            }} />
+          ))}
+        </div>
+      )}
+
+      {/* フラッシュオーバーレイ */}
       {flash && (
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 3,
+          position: 'absolute', inset: 0, zIndex: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 64, opacity: 0.65, pointerEvents: 'none',
-          background: isCorrect ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+          fontSize: 'clamp(36px, 4.5vw, 64px)',
+          opacity: 0.6,
+          pointerEvents: 'none',
+          background: isCorrect ? 'rgba(0,255,136,0.06)' : 'rgba(255,34,68,0.06)',
         }}>
           {isCorrect ? '⭕' : '❌'}
         </div>
