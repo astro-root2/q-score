@@ -1,14 +1,17 @@
 import type { PlayerState } from '@/lib/engine/types'
 import { RuleRegistry } from '@/lib/engine/rules'
 
-// プレイヤーのポジションから背景カラーを生成（アクセントカラーを基調に明度を変える）
-function getCardBg(position: number): string {
-  const hues = [220, 200, 240, 210, 230, 190, 215, 205]
-  const hue  = hues[(position - 1) % hues.length]
-  const sat  = 60 - (position % 3) * 8
-  const lig  = 12 + (position % 2) * 3
-  return `hsl(${hue}, ${sat}%, ${lig}%)`
-}
+// ポジション別カード背景色（参考画像の暗めカラー帯）
+const CARD_COLORS = [
+  { bg: 'hsl(0,   60%, 14%)', border: 'hsl(0,   70%, 35%)' },  // 深紅
+  { bg: 'hsl(220, 60%, 16%)', border: 'hsl(220, 70%, 40%)' },  // 深青
+  { bg: 'hsl(45,  55%, 14%)', border: 'hsl(45,  65%, 35%)' },  // 深黄
+  { bg: 'hsl(150, 50%, 12%)', border: 'hsl(150, 60%, 30%)' },  // 深緑
+  { bg: 'hsl(270, 55%, 15%)', border: 'hsl(270, 65%, 38%)' },  // 深紫
+  { bg: 'hsl(190, 55%, 13%)', border: 'hsl(190, 65%, 32%)' },  // 深シアン
+  { bg: 'hsl(30,  55%, 13%)', border: 'hsl(30,  65%, 33%)' },  // 深橙
+  { bg: 'hsl(330, 55%, 14%)', border: 'hsl(330, 65%, 36%)' },  // 深ピンク
+]
 
 export function PlayerCard({ player, rule, params, flash }: {
   player: PlayerState
@@ -16,109 +19,118 @@ export function PlayerCard({ player, rule, params, flash }: {
   params: Record<string, number | string | boolean>
   flash: 'correct' | 'wrong' | null
 }) {
-  const display  = rule?.getScoreDisplay(player, params)
-  const towerPct = display?.towerMax && display.towerMax > 0
+  const display    = rule?.getScoreDisplay(player, params)
+  const towerPct   = display?.towerMax && display.towerMax > 0
     ? Math.min((display.towerValue ?? 0) / display.towerMax * 100, 100) : 0
 
-  const isCorrect = flash === 'correct'
-  const isWrong   = flash === 'wrong'
+  const colorIdx   = (player.position - 1) % CARD_COLORS.length
+  const { bg, border: cardBorder } = CARD_COLORS[colorIdx]
 
-  const cardBg      = getCardBg(player.position)
-  const borderColor = isCorrect ? '#10b981' : isWrong ? '#ef4444' : 'var(--accent-border)'
+  const isCorrect  = flash === 'correct'
+  const isWrong    = flash === 'wrong'
+
+  const flashBorder = isCorrect ? '#10b981' : isWrong ? '#ef4444' : null
+  const flashGlow   = isCorrect ? 'rgba(16,185,129,0.5)' : isWrong ? 'rgba(239,68,68,0.4)' : null
   const scoreColor  = isCorrect ? '#10b981' : isWrong ? '#ef4444' : 'var(--accent)'
-  const glowColor   = isCorrect ? 'rgba(16,185,129,0.5)' : isWrong ? 'rgba(239,68,68,0.4)' : 'var(--accent-glow)'
+  const scoreGlow   = isCorrect ? 'rgba(16,185,129,0.5)' : isWrong ? 'rgba(239,68,68,0.4)' : 'var(--accent-glow)'
 
   return (
     <div style={{
       position: 'relative',
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'flex', flexDirection: 'column',
       height: '100%',
-      background: cardBg,
-      border: `2px solid ${borderColor}`,
-      boxShadow: flash ? `0 0 24px ${glowColor}` : `0 0 8px rgba(0,0,0,0.5)`,
-      transform: flash ? 'scale(1.04)' : 'scale(1)',
+      background: bg,
+      border: `2px solid ${flashBorder ?? cardBorder}`,
+      boxShadow: flashGlow
+        ? `0 0 28px ${flashGlow}, inset 0 0 30px rgba(0,0,0,0.4)`
+        : `inset 0 0 30px rgba(0,0,0,0.5), 0 4px 12px rgba(0,0,0,0.4)`,
+      transform: flash ? 'scale(1.03)' : 'scale(1)',
       transition: 'all 0.2s ease',
       overflow: 'hidden',
     }}>
 
-      {/* タワーバー（背景から伸びる） */}
+      {/* タワーバー */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
         height: `${towerPct}%`,
-        background: `linear-gradient(to top, ${scoreColor}25, transparent)`,
+        background: `linear-gradient(to top, ${scoreColor}30, transparent)`,
+        borderTop: towerPct > 5 ? `1px solid ${scoreColor}50` : 'none',
         transition: 'height 0.6s cubic-bezier(0.34,1.56,0.64,1)',
         zIndex: 0,
-        borderTop: towerPct > 0 ? `1px solid ${scoreColor}40` : 'none',
       }} />
 
-      {/* 上部カラーバー（アクセントライン） */}
+      {/* 上部アクセントライン */}
       <div style={{
-        height: 4, background: 'var(--accent)',
-        boxShadow: '0 0 8px var(--accent)',
-        flexShrink: 0,
+        height: 3, flexShrink: 0,
+        background: flashBorder ?? 'var(--accent)',
+        boxShadow: `0 0 10px ${flashGlow ?? 'var(--accent)'}`,
       }} />
+
+      {/* 順位表示 */}
+      <div style={{
+        padding: '6px 8px 0',
+        display: 'flex', justifyContent: 'center',
+        flexShrink: 0, zIndex: 1,
+      }}>
+        <span style={{
+          fontSize: 10, fontWeight: 700,
+          color: flashBorder ?? cardBorder,
+          letterSpacing: '0.1em',
+          textShadow: `0 0 8px ${flashBorder ?? cardBorder}`,
+        }}>
+          #{player.position}
+        </span>
+      </div>
 
       {/* 名前エリア（縦書き） */}
       <div style={{
         position: 'relative', zIndex: 1,
         flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '12px 6px',
-        gap: 4,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '8px 4px',
+        gap: 2,
       }}>
-        {/* 所属 */}
         {player.affiliation && (
           <div style={{
             writingMode: 'vertical-rl', textOrientation: 'upright',
-            color: 'rgba(255,255,255,0.5)', fontSize: 10,
-            letterSpacing: 1, lineHeight: 1,
+            color: 'rgba(255,255,255,0.35)', fontSize: 9,
+            letterSpacing: 2,
           }}>{player.affiliation}</div>
         )}
-
-        {/* 名前（縦書き・大） */}
         <div style={{
           writingMode: 'vertical-rl', textOrientation: 'upright',
           color: flash ? '#ffffff' : '#f1f5f9',
-          fontSize: 24, fontWeight: 900,
-          letterSpacing: 4, lineHeight: 1,
-          textShadow: flash ? `0 0 16px ${scoreColor}` : '0 2px 8px rgba(0,0,0,0.8)',
+          fontSize: 22, fontWeight: 900,
+          letterSpacing: 4,
+          textShadow: flash
+            ? `0 0 20px ${scoreColor}, 0 2px 8px rgba(0,0,0,0.8)`
+            : '0 2px 12px rgba(0,0,0,0.8)',
           transition: 'all 0.2s',
         }}>{player.name}</div>
-
-        {/* ニックネーム */}
         {player.nickname && (
           <div style={{
             writingMode: 'vertical-rl', textOrientation: 'upright',
-            color: 'rgba(255,255,255,0.4)', fontSize: 10,
-            letterSpacing: 1,
+            color: 'rgba(255,255,255,0.3)', fontSize: 9,
+            letterSpacing: 2,
           }}>{player.nickname}</div>
         )}
       </div>
 
-      {/* 下部スコアボックス */}
+      {/* スコアボックス */}
       <div style={{
         position: 'relative', zIndex: 1,
-        flexShrink: 0,
         margin: '0 8px 10px',
         padding: '8px 6px',
-        background: 'rgba(0,0,0,0.6)',
+        background: 'rgba(0,0,0,0.7)',
         border: `2px solid ${scoreColor}`,
-        boxShadow: `0 0 12px ${glowColor}, inset 0 0 12px rgba(0,0,0,0.5)`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 3,
+        boxShadow: `0 0 16px ${scoreGlow}, inset 0 0 16px rgba(0,0,0,0.6)`,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: 3, flexShrink: 0,
       }}>
-        {/* メインスコア */}
         <div style={{
-          fontSize: 52, fontWeight: 900,
+          fontSize: 54, fontWeight: 900, lineHeight: 1,
           color: scoreColor,
-          lineHeight: 1,
-          textShadow: `0 0 20px ${glowColor}`,
+          textShadow: `0 0 24px ${scoreGlow}`,
           fontVariantNumeric: 'tabular-nums',
           letterSpacing: '-2px',
           transition: 'all 0.2s',
@@ -126,12 +138,12 @@ export function PlayerCard({ player, rule, params, flash }: {
           {display?.primary ?? '0'}
         </div>
 
-        {/* サブ情報 */}
         {display?.detail && (
-          <div style={{ color: '#f59e0b', fontSize: 10, fontWeight: 700 }}>{display.detail}</div>
+          <div style={{ color: '#f59e0b', fontSize: 10, fontWeight: 700 }}>
+            {display.detail}
+          </div>
         )}
 
-        {/* ○✕カウント */}
         {(player.correct > 0 || player.wrong > 0) && (
           <div style={{ display: 'flex', gap: 8, fontSize: 11 }}>
             {player.correct > 0 && (
@@ -146,15 +158,15 @@ export function PlayerCard({ player, rule, params, flash }: {
         )}
       </div>
 
-      {/* フラッシュオーバーレイ */}
+      {/* フラッシュ */}
       {flash && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 3,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 64, opacity: 0.7, pointerEvents: 'none',
-          background: flash === 'correct' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+          fontSize: 64, opacity: 0.65, pointerEvents: 'none',
+          background: isCorrect ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
         }}>
-          {flash === 'correct' ? '⭕' : '❌'}
+          {isCorrect ? '⭕' : '❌'}
         </div>
       )}
     </div>

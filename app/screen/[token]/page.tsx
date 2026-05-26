@@ -29,11 +29,9 @@ export default function ScreenPage() {
         .select('id, name, game_state, rounds(name, rule_id, tournament_id, tournaments(name, theme_color))')
         .eq('display_token', token).single()
       if (!match) return
-
-      const round = (match as any).rounds ?? {}
+      const round      = (match as any).rounds ?? {}
       const tournament = round.tournaments ?? {}
-      const rule  = RuleRegistry.find(round.rule_id ?? '')
-
+      const rule       = RuleRegistry.find(round.rule_id ?? '')
       let totalQuestions: number | null = null
       if (round.tournament_id) {
         const { count } = await supabase
@@ -41,7 +39,6 @@ export default function ScreenPage() {
           .eq('tournament_id', round.tournament_id)
         totalQuestions = count
       }
-
       setMatchId(match.id)
       setState(match.game_state as MatchState)
       prevState.current = match.game_state as MatchState
@@ -79,115 +76,109 @@ export default function ScreenPage() {
   const themeVars = buildThemeVars(accent)
 
   if (!state) return (
-    <div style={{ ...rootStyle, ...themeVars }}>
-      <div style={{ color: 'var(--accent)', fontSize: 18, letterSpacing: '0.5em', opacity: 0.5 }}>LOADING...</div>
+    <div style={{ ...root, ...themeVars, alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: 'var(--accent)', opacity: 0.4, letterSpacing: '0.5em', fontSize: 14 }}>LOADING...</div>
     </div>
   )
 
   if (state.status === 'completed') return <CompletedScreen state={state} meta={meta} />
 
-  const rule      = RuleRegistry.find(state.ruleId)
-  const active    = state.players.filter(p => p.status === 'active')
-  const winners   = state.players.filter(p => p.status === 'winner')
+  const rule       = RuleRegistry.find(state.ruleId)
+  const active     = state.players.filter(p => p.status === 'active')
+  const winners    = state.players.filter(p => p.status === 'winner')
   const eliminated = state.players.filter(p => p.status === 'eliminated')
-  const resting   = state.players.filter(p => p.status === 'resting')
-  const qParts    = state.questionText ? splitQuestionText(state.questionText) : null
+  const resting    = state.players.filter(p => p.status === 'resting')
+  const qParts     = state.questionText ? splitQuestionText(state.questionText) : null
 
   return (
-    <div style={{ ...rootStyle, ...themeVars }}>
+    <div style={{ ...root, ...themeVars }}>
 
-      {/* グローバルフラッシュ */}
+      {/* フラッシュ */}
       {flash && (
         <div style={{
           position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'none',
-          background: flash.type === 'correct' ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
+          background: flash.type === 'correct' ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)',
         }} />
       )}
 
-      {/* ─── ヘッダー ─── */}
-      <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexWrap: 'wrap', gap: 12,
-        padding: '10px 20px',
-        background: 'rgba(5,8,20,0.95)',
-        borderBottom: '1px solid var(--accent-border)',
+      {/* ── ヘッダー ── */}
+      <div style={{
+        display: 'flex', alignItems: 'stretch',
+        borderBottom: '2px solid var(--accent-border)',
         boxShadow: '0 2px 20px var(--accent-glow)',
         flexShrink: 0,
-        position: 'relative',
+        background: 'rgba(5,8,20,0.98)',
       }}>
-        {/* 左装飾ライン */}
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }} />
+        {/* アクセントバー */}
+        <div style={{ width: 4, background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)', flexShrink: 0 }} />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingLeft: 12 }}>
+        {/* 左: 大会名・試合名 */}
+        <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, flex: 1, minWidth: 0 }}>
           {meta?.tournamentName && (
-            <div style={{ color: 'var(--accent)', fontSize: 11, letterSpacing: '0.2em', opacity: 0.8, textTransform: 'uppercase' }}>
+            <div style={{ color: 'var(--accent)', fontSize: 10, letterSpacing: '0.2em', opacity: 0.8 }}>
               {meta.tournamentName}
             </div>
           )}
-          <div style={{ color: '#f1f5f9', fontWeight: 900, fontSize: 20, letterSpacing: '0.05em', textShadow: '0 0 20px rgba(255,255,255,0.3)' }}>
-            {meta?.matchName ?? state.matchName}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: '#f1f5f9', fontWeight: 900, fontSize: 18 }}>{meta?.matchName ?? state.matchName}</span>
+            {meta?.roundName && <span style={{ color: '#334155', fontSize: 12 }}>{meta.roundName}</span>}
+            {meta?.ruleName && (
+              <span style={{
+                color: 'var(--accent)', fontSize: 10, fontWeight: 700,
+                border: '1px solid var(--accent-border)', padding: '1px 8px',
+                background: 'var(--accent-dim)',
+                clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
+              }}>{meta.ruleName}</span>
+            )}
           </div>
-          {meta?.roundName && (
-            <div style={{ color: '#475569', fontSize: 12, letterSpacing: '0.1em' }}>{meta.roundName}</div>
-          )}
-          {meta?.ruleName && (
-            <div style={{
-              color: 'var(--accent)', fontSize: 10, fontWeight: 700,
-              border: '1px solid var(--accent-border)',
-              padding: '2px 8px', letterSpacing: '0.1em',
-              clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
-              background: 'var(--accent-dim)',
-            }}>{meta.ruleName}</div>
-          )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* 右: Q番号・人数 */}
+        <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           {state.status === 'paused' && (
-            <div style={{ color: '#fbbf24', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', animation: 'pulse 1s infinite' }}>
-              ⏸ PAUSE
-            </div>
+            <span style={{ color: '#fbbf24', fontSize: 11, fontWeight: 700, letterSpacing: '0.1em' }}>⏸ PAUSE</span>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {state.questionNumber > 0 && (
-              <div style={{
-                display: 'flex', alignItems: 'baseline', gap: 3,
-                background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
-                padding: '4px 12px',
-                clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)',
-              }}>
-                <span style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 700 }}>Q</span>
-                <span style={{ color: '#f1f5f9', fontSize: 26, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                  {state.questionNumber}
-                </span>
-                {meta?.totalQuestions && (
-                  <span style={{ color: '#475569', fontSize: 11 }}>/ {meta.totalQuestions}</span>
-                )}
-              </div>
-            )}
+          {state.questionNumber > 0 && (
             <div style={{
-              display: 'flex', alignItems: 'baseline', gap: 3,
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-              padding: '4px 12px',
+              display: 'flex', alignItems: 'baseline', gap: 2,
+              background: 'var(--accent-dim)', border: '1px solid var(--accent-border)',
+              padding: '4px 14px',
               clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)',
             }}>
-              <span style={{ color: '#475569', fontSize: 11 }}>残</span>
-              <span style={{ color: '#94a3b8', fontSize: 18, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{active.length}</span>
-              <span style={{ color: '#334155', fontSize: 11 }}>/ {state.players.length}</span>
+              <span style={{ color: 'var(--accent)', fontSize: 11, fontWeight: 700 }}>Q</span>
+              <span style={{ color: '#f1f5f9', fontSize: 28, fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                {state.questionNumber}
+              </span>
+              {meta?.totalQuestions && (
+                <span style={{ color: '#334155', fontSize: 11 }}>/{meta.totalQuestions}</span>
+              )}
             </div>
+          )}
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 2,
+            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+            padding: '4px 12px',
+            clipPath: 'polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%)',
+          }}>
+            <span style={{ color: '#334155', fontSize: 11 }}>残</span>
+            <span style={{ color: '#64748b', fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{active.length}</span>
+            <span style={{ color: '#1e293b', fontSize: 11 }}>/{state.players.length}</span>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* 問題文 - 常時表示 */}
+      {/* ── 問題文（常時表示） ── */}
       <div style={{
-        padding: '8px 24px',
-        background: 'rgba(5,8,20,0.8)',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        flexShrink: 0, minHeight: 40,
-        display: 'flex', alignItems: 'center',
+        padding: '10px 20px',
+        background: 'rgba(5,8,20,0.9)',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        flexShrink: 0,
+        minHeight: 48,
+        display: 'flex',
+        alignItems: 'center',
       }}>
         {qParts ? (
-          <p style={{ margin: 0, color: '#cbd5e1', fontSize: 14, lineHeight: 1.6 }}>
+          <p style={{ margin: 0, color: '#e2e8f0', fontSize: 15, lineHeight: 1.7, letterSpacing: '0.03em' }}>
             {qParts.map((part, i) => (
               <span key={i}>
                 {part}
@@ -198,32 +189,30 @@ export default function ScreenPage() {
             ))}
           </p>
         ) : (
-          <p style={{ margin: 0, color: '#1e293b', fontSize: 13, fontStyle: 'italic' }}>問題文なし</p>
+          <p style={{ margin: 0, color: '#1e293b', fontSize: 13, letterSpacing: '0.1em' }}>— 問題文未入力 —</p>
         )}
       </div>
 
-      {/* 勝ち抜け */}
+      {/* ── 勝ち抜け ── */}
       {winners.length > 0 && (
         <div style={{
           display: 'flex', gap: 8, flexWrap: 'wrap', padding: '6px 20px',
-          background: 'rgba(16,185,129,0.05)',
-          borderBottom: '1px solid rgba(16,185,129,0.2)',
+          background: 'rgba(16,185,129,0.05)', borderBottom: '1px solid rgba(16,185,129,0.15)',
           flexShrink: 0,
         }}>
           {winners.map(p => (
             <div key={p.id} style={{
               color: '#10b981', fontSize: 12, fontWeight: 700,
-              border: '1px solid rgba(16,185,129,0.4)',
-              padding: '3px 12px',
+              border: '1px solid rgba(16,185,129,0.35)', padding: '2px 12px',
+              background: 'rgba(16,185,129,0.08)',
               clipPath: 'polygon(4px 0, 100% 0, calc(100% - 4px) 100%, 0 100%)',
-              background: 'rgba(16,185,129,0.1)',
             }}>🏆 {p.name}</div>
           ))}
         </div>
       )}
 
-      {/* プレイヤーグリッド */}
-      <div style={{ flex: 1, minHeight: 0, padding: '12px 16px' }}>
+      {/* ── プレイヤーグリッド ── */}
+      <div style={{ flex: 1, minHeight: 0, padding: '12px' }}>
         <div style={{
           height: '100%', display: 'grid', gap: 8,
           gridTemplateColumns: `repeat(${active.length}, minmax(0, 1fr))`,
@@ -235,16 +224,16 @@ export default function ScreenPage() {
         </div>
       </div>
 
-      {/* フッター */}
+      {/* ── 脱落・休み ── */}
       {(eliminated.length > 0 || resting.length > 0) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '8px 20px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 16px', flexShrink: 0 }}>
           {eliminated.map(p => (
             <span key={p.id} style={{ fontSize: 11, color: '#1e293b', textDecoration: 'line-through', padding: '1px 8px', border: '1px solid #1e293b' }}>
               {p.name}
             </span>
           ))}
           {resting.map(p => (
-            <span key={p.id} style={{ fontSize: 11, color: '#92400e', padding: '1px 8px', border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.08)' }}>
+            <span key={p.id} style={{ fontSize: 11, color: '#92400e', padding: '1px 8px', border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.06)' }}>
               {p.name} 休{p.restRemaining}
             </span>
           ))}
@@ -254,18 +243,16 @@ export default function ScreenPage() {
   )
 }
 
-const rootStyle: React.CSSProperties = {
+const root: React.CSSProperties = {
   minHeight: '100vh',
   background: '#050814',
   backgroundImage: `
-    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)
   `,
   backgroundSize: '40px 40px',
   color: '#f1f5f9',
-  display: 'flex',
-  flexDirection: 'column',
+  display: 'flex', flexDirection: 'column',
   fontFamily: "'Hiragino Kaku Gothic ProN','Hiragino Sans','Meiryo',system-ui,sans-serif",
-  userSelect: 'none',
-  overflow: 'hidden',
+  userSelect: 'none', overflow: 'hidden',
 }
