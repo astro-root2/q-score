@@ -178,14 +178,15 @@ export default function ScreenPage() {
         </div>
       </header>
 
-      {/* 問題文 */}
-      {qParts && (
-        <div style={{
-          padding: '8px 24px',
-          background: 'rgba(5,8,20,0.8)',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          flexShrink: 0,
-        }}>
+      {/* 問題文 - 常時表示 */}
+      <div style={{
+        padding: '8px 24px',
+        background: 'rgba(5,8,20,0.8)',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        flexShrink: 0, minHeight: 40,
+        display: 'flex', alignItems: 'center',
+      }}>
+        {qParts ? (
           <p style={{ margin: 0, color: '#cbd5e1', fontSize: 14, lineHeight: 1.6 }}>
             {qParts.map((part, i) => (
               <span key={i}>
@@ -196,8 +197,10 @@ export default function ScreenPage() {
               </span>
             ))}
           </p>
-        </div>
-      )}
+        ) : (
+          <p style={{ margin: 0, color: '#1e293b', fontSize: 13, fontStyle: 'italic' }}>問題文なし</p>
+        )}
+      </div>
 
       {/* 勝ち抜け */}
       {winners.length > 0 && (
