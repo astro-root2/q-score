@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+const extraOrigins = process.env.NEXT_PUBLIC_APP_URL
+  ? [new URL(process.env.NEXT_PUBLIC_APP_URL).host]
+  : []
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -7,7 +11,9 @@ const nextConfig = {
     ],
   },
   experimental: {
-    serverActions: { allowedOrigins: ['localhost:3000'] },
+    serverActions: {
+      allowedOrigins: ['localhost:3000', ...extraOrigins],
+    },
   },
 }
 

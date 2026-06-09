@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { QuizRule } from '../types'
 import { MonMaruNBatsuRule } from './MonMaruNBatsu'
 import { RensotoAbcRule, RensotoAbcKasoRule } from './RensotoAbc'

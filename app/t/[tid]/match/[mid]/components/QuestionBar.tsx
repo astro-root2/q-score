@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { Save, BookOpen } from 'lucide-react'

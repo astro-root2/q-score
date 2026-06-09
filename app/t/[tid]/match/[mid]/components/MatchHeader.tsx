@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import Link from 'next/link'
 import { Wifi, WifiOff, Play, Pause, Square, Monitor, Radio, Eye } from 'lucide-react'

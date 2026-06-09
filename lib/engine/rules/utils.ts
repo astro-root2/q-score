@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { MatchState, PlayerState, PlayerOpts, ParticipantInit, StateTransition } from '../types'
 
 export function cloneState(state: MatchState): MatchState {

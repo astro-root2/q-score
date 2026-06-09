@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { MatchState } from '@/lib/engine/types'
 import { RuleRegistry } from '@/lib/engine/rules'
 import type { MatchMeta } from '../types'

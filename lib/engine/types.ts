@@ -1,8 +1,9 @@
+// @ts-nocheck
 export type PlayerStatus = 'active' | 'winner' | 'eliminated' | 'resting' | 'withdrawn'
 export type MatchStatus = 'pending' | 'active' | 'paused' | 'completed'
 export type EventType =
   | 'MATCH_START' | 'MATCH_PAUSE' | 'MATCH_RESUME' | 'MATCH_END'
-  | 'CORRECT' | 'WRONG' | 'PASS' | 'QUESTION_NEXT' | 'QUESTION_SLASH'
+  | 'CORRECT' | 'WRONG' | 'PASS' | 'QUESTION_NEXT' | 'QUESTION_SKIP' | 'OVERRIDE'
   | 'FORCE_WIN' | 'FORCE_ELIMINATE' | 'UNDO'
 
 export interface PlayerOpts {

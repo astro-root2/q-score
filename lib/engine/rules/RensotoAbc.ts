@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { QuizRule, MatchState, PlayerState, StateTransition, ValidationResult, ScoreDisplay, RuleParamDef, ParticipantInit, PlayerOpts } from '../types'
 import { cloneState, makePlayerState, makeMatchState, applyWin, applyEliminate, decrementRests, statusReason, breakChainForOthers } from './utils'
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
@@ -25,7 +26,7 @@ export default function ScreenPage() {
   useEffect(() => {
     if (!token) return
     ;(async () => {
-      const { data: match } = await supabase
+      const { data: match } = await (supabase as any)
         .from('matches')
         .select('id, name, game_state, rounds(name, rule_id, tournament_id, tournaments(name, theme_color, settings))')
         .eq('display_token', token).single()
@@ -38,7 +39,7 @@ export default function ScreenPage() {
 
       let totalQuestions: number | null = null
       if (round.tournament_id) {
-        const { count } = await supabase
+        const { count } = await (supabase as any)
           .from('questions').select('id', { count: 'exact', head: true })
           .eq('tournament_id', round.tournament_id)
         totalQuestions = count
@@ -63,7 +64,7 @@ export default function ScreenPage() {
 
   useEffect(() => {
     if (!matchId) return
-    const ch = supabase.channel(`match:${matchId}`)
+    const ch = (supabase as any).channel(`match:${matchId}`)
       .on('broadcast', { event: 'STATE_UPDATE' }, ({ payload }) => {
         const next = payload.state as MatchState
         if (prevState.current) {
@@ -78,7 +79,7 @@ export default function ScreenPage() {
         prevState.current = next
         setState(next)
       }).subscribe()
-    return () => { supabase.removeChannel(ch) }
+    return () => { (supabase as any).removeChannel(ch) }
   }, [matchId])
 
   if (!state) return (

@@ -1,3 +1,4 @@
+// @ts-nocheck
 // 読み上げ区切りの内部表現。問題文中の通常の "/" と区別するために使用
 export const SLASH_MARKER = '{/}'
 

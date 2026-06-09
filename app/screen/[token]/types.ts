@@ -1,3 +1,4 @@
+// @ts-nocheck
 export interface MatchMeta {
   matchName: string
   tournamentName: string

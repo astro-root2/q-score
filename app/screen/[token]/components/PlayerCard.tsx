@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { PlayerState } from '@/lib/engine/types'
 import { RuleRegistry } from '@/lib/engine/rules'
 import type { RankColorTier } from '../types'

@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'

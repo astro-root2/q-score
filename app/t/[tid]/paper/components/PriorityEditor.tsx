@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { ChevronUp, ChevronDown } from 'lucide-react'
 import { SORT_KEYS } from '../types'

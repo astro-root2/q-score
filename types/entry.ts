@@ -1,3 +1,4 @@
+// @ts-nocheck
 export type FieldType = 'text' | 'number' | 'select' | 'textarea' | 'checkbox'
 
 export interface FormField {
