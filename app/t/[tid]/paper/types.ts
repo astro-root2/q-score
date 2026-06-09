@@ -20,6 +20,7 @@ export interface PaperQuestion {
   question_text: string
   correct_answer: string
   question_type: string
+  points: number
 }
 
 export interface PaperSubmission {

@@ -5,78 +5,111 @@ export interface Database {
     Tables: {
       tournaments: {
         Row: {
-          id: string; owner_id: string; name: string; slug: string | null
-          logo_url: string | null; theme_color: string
+          id: string; owner_id: string; name: string
           status: 'draft' | 'active' | 'completed' | 'archived'
-          settings: Json; created_at: string; updated_at: string
+          theme_color: string; settings: Json
+          color_config: Json; display_config: Json
+          logo_url: string | null; created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['tournaments']['Row'], 'id' | 'created_at' | 'updated_at'> & {
-          id?: string; created_at?: string; updated_at?: string
+        Insert: {
+          id?: string; owner_id: string; name: string
+          status?: 'draft' | 'active' | 'completed' | 'archived'
+          theme_color?: string; settings?: Json
+          color_config?: Json; display_config?: Json
+          logo_url?: string | null; created_at?: string
         }
-        Update: Partial<Database['public']['Tables']['tournaments']['Insert']>
-      }
-      tournament_members: {
-        Row: { id: string; tournament_id: string; user_id: string; role: 'admin' | 'operator' | 'staff' | 'display' }
-        Insert: Omit<Database['public']['Tables']['tournament_members']['Row'], 'id'> & { id?: string }
-        Update: Partial<Database['public']['Tables']['tournament_members']['Insert']>
+        Update: {
+          id?: string; owner_id?: string; name?: string
+          status?: 'draft' | 'active' | 'completed' | 'archived'
+          theme_color?: string; settings?: Json
+          color_config?: Json; display_config?: Json; logo_url?: string | null
+        }
       }
       teams: {
-        Row: { id: string; tournament_id: string; name: string; ruby: string | null; color: string | null; order_num: number }
-        Insert: Omit<Database['public']['Tables']['teams']['Row'], 'id'> & { id?: string }
-        Update: Partial<Database['public']['Tables']['teams']['Insert']>
+        Row: { id: string; tournament_id: string; name: string; created_at: string }
+        Insert: { id?: string; tournament_id: string; name: string; created_at?: string }
+        Update: { id?: string; tournament_id?: string; name?: string }
       }
       participants: {
         Row: {
           id: string; tournament_id: string; team_id: string | null
-          name: string; ruby: string | null; seed: number; group_label: string | null
-          status: 'active' | 'withdrawn' | 'disqualified'; extra: Json; created_at: string
+          name: string; ruby: string | null
+          status: 'active' | 'withdrawn' | 'disqualified'
+          nickname: string | null; affiliation: string | null; grade: string | null
+          paper_rank: number | null; final_rank: number | null; created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['participants']['Row'], 'id' | 'created_at'> & {
-          id?: string; created_at?: string
+        Insert: {
+          id?: string; tournament_id: string; team_id?: string | null
+          name: string; ruby?: string | null
+          status?: 'active' | 'withdrawn' | 'disqualified'
+          nickname?: string | null; affiliation?: string | null; grade?: string | null
+          paper_rank?: number | null; final_rank?: number | null; created_at?: string
         }
-        Update: Partial<Database['public']['Tables']['participants']['Insert']>
+        Update: {
+          tournament_id?: string; team_id?: string | null
+          name?: string; ruby?: string | null
+          status?: 'active' | 'withdrawn' | 'disqualified'
+          nickname?: string | null; affiliation?: string | null; grade?: string | null
+          paper_rank?: number | null; final_rank?: number | null
+        }
       }
       rounds: {
         Row: {
-          id: string; tournament_id: string; name: string; rule_id: string
-          rule_params: Json; order_num: number
-          status: 'pending' | 'active' | 'completed'; settings: Json; created_at: string
+          id: string; tournament_id: string; name: string
+          order_index: number; rule_id: string; rule_params: Json
+          status?: string; created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['rounds']['Row'], 'id' | 'created_at'> & {
-          id?: string; created_at?: string
+        Insert: {
+          id?: string; tournament_id: string; name: string
+          order_index?: number; rule_id: string; rule_params?: Json
+          status?: string; created_at?: string
         }
-        Update: Partial<Database['public']['Tables']['rounds']['Insert']>
+        Update: {
+          tournament_id?: string; name?: string
+          order_index?: number; rule_id?: string; rule_params?: Json; status?: string
+        }
       }
       matches: {
         Row: {
-          id: string; round_id: string; tournament_id: string; match_num: number
+          id: string; round_id: string; match_num: number
           name: string | null; status: 'pending' | 'active' | 'paused' | 'completed'
-          winner_ids: string[]; question_count: number
-          display_token: string; obs_token: string; settings: Json
-          created_at: string; updated_at: string
+          game_state: Json | null; question_text: string | null
+          display_token: string; obs_token: string; staff_token: string; created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['matches']['Row'], 'id' | 'created_at' | 'updated_at' | 'display_token' | 'obs_token'> & {
-          id?: string; created_at?: string; updated_at?: string
-          display_token?: string; obs_token?: string
+        Insert: {
+          id?: string; round_id: string; match_num?: number
+          name?: string | null; status?: 'pending' | 'active' | 'paused' | 'completed'
+          game_state?: Json | null; question_text?: string | null
+          display_token?: string; obs_token?: string; staff_token?: string; created_at?: string
         }
-        Update: Partial<Database['public']['Tables']['matches']['Insert']>
+        Update: {
+          round_id?: string; match_num?: number; name?: string | null
+          status?: 'pending' | 'active' | 'paused' | 'completed'
+          game_state?: Json | null; question_text?: string | null
+          display_token?: string; obs_token?: string; staff_token?: string
+        }
       }
       match_participants: {
         Row: { id: string; match_id: string; participant_id: string; position: number }
-        Insert: Omit<Database['public']['Tables']['match_participants']['Row'], 'id'> & { id?: string }
-        Update: Partial<Database['public']['Tables']['match_participants']['Insert']>
+        Insert: { id?: string; match_id: string; participant_id: string; position?: number }
+        Update: { match_id?: string; participant_id?: string; position?: number }
       }
       questions: {
         Row: {
-          id: string; tournament_id: string; seq_num: number | null
-          question_text: string | null; answer_text: string | null
-          genre: string | null; difficulty: number; note: string | null
-          status: 'unused' | 'used' | 'skipped'; created_at: string
+          id: string; tournament_id: string; order_index: number
+          body: string; answer: string; genre: string | null
+          difficulty: number; note: string | null; used: boolean; created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['questions']['Row'], 'id' | 'created_at'> & {
-          id?: string; created_at?: string
+        Insert: {
+          id?: string; tournament_id: string; order_index?: number
+          body?: string; answer?: string; genre?: string | null
+          difficulty?: number; note?: string | null; used?: boolean; created_at?: string
         }
-        Update: Partial<Database['public']['Tables']['questions']['Insert']>
+        Update: {
+          tournament_id?: string; order_index?: number
+          body?: string; answer?: string; genre?: string | null
+          difficulty?: number; note?: string | null; used?: boolean
+        }
       }
       game_events: {
         Row: {
@@ -84,15 +117,88 @@ export interface Database {
           actor_id: string | null; operator_id: string | null
           payload: Json; undone: boolean; created_at: string
         }
-        Insert: Omit<Database['public']['Tables']['game_events']['Row'], 'id' | 'created_at'> & {
-          id?: string; created_at?: string
+        Insert: {
+          id?: string; match_id: string; seq: number; event_type: string
+          actor_id?: string | null; operator_id?: string | null
+          payload?: Json; undone?: boolean; created_at?: string
         }
-        Update: Partial<Database['public']['Tables']['game_events']['Insert']>
+        Update: { undone?: boolean; payload?: Json }
       }
       game_states: {
         Row: { match_id: string; state: Json; event_seq: number; updated_at: string }
-        Insert: Omit<Database['public']['Tables']['game_states']['Row'], 'updated_at'> & { updated_at?: string }
-        Update: Partial<Database['public']['Tables']['game_states']['Insert']>
+        Insert: { match_id: string; state: Json; event_seq?: number; updated_at?: string }
+        Update: { state?: Json; event_seq?: number; updated_at?: string }
+      }
+      paper_rounds: {
+        Row: {
+          id: string; tournament_id: string; name: string
+          order_index: number; time_limit_seconds: number | null
+          ranking_priority: Json; created_at: string
+        }
+        Insert: {
+          id?: string; tournament_id: string; name?: string
+          order_index?: number; time_limit_seconds?: number | null
+          ranking_priority?: Json; created_at?: string
+        }
+        Update: { name?: string; order_index?: number; time_limit_seconds?: number | null; ranking_priority?: Json }
+      }
+      paper_questions: {
+        Row: {
+          id: string; paper_round_id: string; order_index: number
+          question_text: string; correct_answer: string
+          question_type: string; points: number; created_at: string
+        }
+        Insert: {
+          id?: string; paper_round_id: string; order_index?: number
+          question_text?: string; correct_answer?: string
+          question_type?: string; points?: number; created_at?: string
+        }
+        Update: { order_index?: number; question_text?: string; correct_answer?: string; question_type?: string; points?: number }
+      }
+      paper_submissions: {
+        Row: {
+          id: string; paper_round_id: string; participant_id: string
+          photo_url: string | null; submitted_at: string | null
+          raw_score: number; proximity_error: number | null
+          chain1: number; chain2: number; chain3: number
+          answers: Json; created_at: string
+        }
+        Insert: {
+          id?: string; paper_round_id: string; participant_id: string
+          photo_url?: string | null; submitted_at?: string | null
+          raw_score?: number; proximity_error?: number | null
+          chain1?: number; chain2?: number; chain3?: number
+          answers?: Json; created_at?: string
+        }
+        Update: {
+          photo_url?: string | null; submitted_at?: string | null
+          raw_score?: number; proximity_error?: number | null
+          chain1?: number; chain2?: number; chain3?: number; answers?: Json
+        }
+      }
+      entry_forms: {
+        Row: {
+          id: string; tournament_id: string; title: string
+          description: string | null; fields: Json
+          is_open: boolean; created_at: string
+        }
+        Insert: {
+          id?: string; tournament_id: string; title?: string
+          description?: string | null; fields?: Json
+          is_open?: boolean; created_at?: string
+        }
+        Update: { title?: string; description?: string | null; fields?: Json; is_open?: boolean }
+      }
+      entry_responses: {
+        Row: {
+          id: string; form_id: string; tournament_id: string
+          data: Json; participant_id: string | null; created_at: string
+        }
+        Insert: {
+          id?: string; form_id: string; tournament_id: string
+          data?: Json; participant_id?: string | null; created_at?: string
+        }
+        Update: { data?: Json; participant_id?: string | null }
       }
     }
     Views: Record<string, never>
